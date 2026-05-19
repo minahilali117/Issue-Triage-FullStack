@@ -33,7 +33,12 @@ const makeIssues = (count) =>
   }));
 
 async function main() {
-  await prisma.issue.deleteMany();
+  const existing = await prisma.issue.count();
+
+  if (existing > 0) {
+    return;
+  }
+
   await prisma.issue.createMany({ data: makeIssues(20) });
 }
 
