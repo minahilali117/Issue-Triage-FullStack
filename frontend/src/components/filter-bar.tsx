@@ -1,3 +1,6 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import {
   IssuePriority,
   IssueQuery,
@@ -5,6 +8,7 @@ import {
   IssueStatus,
   SortOrder,
 } from '@/types/issue';
+import { Button, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui';
 
 interface FilterBarProps {
   initial: IssueQuery;
@@ -25,146 +29,139 @@ const ORDER_OPTIONS: Array<{ label: string; value: SortOrder }> = [
 ];
 
 export default function FilterBar({ initial, onApply, onReset }: FilterBarProps) {
-  return (
-    <form
-      className="grid grid-cols-1 gap-3 rounded-2xl border border-black/10 bg-white/80 p-4 backdrop-blur sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const formData = new FormData(event.currentTarget);
+  const [search, setSearch] = useState<string | undefined>(initial.search);
+  const [status, setStatus] = useState<IssueStatus | undefined>(initial.status);
+  const [priority, setPriority] = useState<IssuePriority | undefined>(initial.priority);
+  const [category, setCategory] = useState<string | undefined>(initial.category);
+  const [assignee, setAssignee] = useState<string | undefined>(initial.assignee);
+  const [sortBy, setSortBy] = useState<IssueSortBy>(initial.sortBy ?? 'createdAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>(initial.sortOrder ?? 'desc');
 
-        onApply({
-          search: String(formData.get('search') ?? '').trim() || undefined,
-          status: (formData.get('status') as IssueStatus) || undefined,
-          priority: (formData.get('priority') as IssuePriority) || undefined,
-          category: String(formData.get('category') ?? '').trim() || undefined,
-          assignee: String(formData.get('assignee') ?? '').trim() || undefined,
-          page: 1,
-          limit: initial.limit ?? 10,
-          sortBy:
-            (formData.get('sortBy') as IssueSortBy) ??
-            initial.sortBy ??
-            'createdAt',
-          sortOrder:
-            (formData.get('sortOrder') as SortOrder) ??
-            initial.sortOrder ??
-            'desc',
-        });
-      }}
-    >
+  useEffect(() => {
+    setSearch(initial.search);
+    setStatus(initial.status);
+    setPriority(initial.priority);
+    setCategory(initial.category);
+    setAssignee(initial.assignee);
+    setSortBy(initial.sortBy ?? 'createdAt');
+    setSortOrder(initial.sortOrder ?? 'desc');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.page, initial?.limit]);
+
+  const handleApply = () => {
+    onApply({
+      search: search?.trim() || undefined,
+      status,
+      priority,
+      category: category?.trim() || undefined,
+      assignee: assignee?.trim() || undefined,
+      page: 1,
+      limit: initial.limit ?? 10,
+      sortBy,
+      sortOrder,
+    });
+  };
+
+  const handleReset = () => {
+    setSearch(undefined);
+    setStatus(undefined);
+    setPriority(undefined);
+    setCategory(undefined);
+    setAssignee(undefined);
+    setSortBy(initial.sortBy ?? 'createdAt');
+    setSortOrder(initial.sortOrder ?? 'desc');
+    onReset();
+  };
+
+  return (
+    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-black/10 bg-white/80 p-4 backdrop-blur sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Search
-        </label>
-        <input
-          name="search"
-          defaultValue={initial.search ?? ''}
-          placeholder="Auth errors, flaky builds..."
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400"
-        />
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Search</label>
+        <Input value={search ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Auth errors, flaky builds..." />
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Status
-        </label>
-        <select
-          name="status"
-          defaultValue={initial.status ?? ''}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-        >
-          <option value="">All</option>
-          {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status.replace('_', ' ')}
-            </option>
-          ))}
-        </select>
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Status</label>
+        <Select value={status ?? '__all'} onValueChange={(v) => setStatus(v === '__all' ? undefined : (v as IssueStatus))}>
+          <SelectTrigger size="sm">
+            <SelectValue>{status ?? 'All'}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">All</SelectItem>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s.replace('_', ' ')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Priority
-        </label>
-        <select
-          name="priority"
-          defaultValue={initial.priority ?? ''}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-        >
-          <option value="">All</option>
-          {PRIORITY_OPTIONS.map((priority) => (
-            <option key={priority} value={priority}>
-              {priority}
-            </option>
-          ))}
-        </select>
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Priority</label>
+        <Select value={priority ?? '__all'} onValueChange={(v) => setPriority(v === '__all' ? undefined : (v as IssuePriority))}>
+          <SelectTrigger size="sm">
+            <SelectValue>{priority ?? 'All'}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">All</SelectItem>
+            {PRIORITY_OPTIONS.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Category
-        </label>
-        <input
-          name="category"
-          defaultValue={initial.category ?? ''}
-          placeholder="Backend"
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400"
-        />
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Category</label>
+        <Input value={category ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)} placeholder="Backend" />
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Assignee
-        </label>
-        <input
-          name="assignee"
-          defaultValue={initial.assignee ?? ''}
-          placeholder="Minahil"
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400"
-        />
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Assignee</label>
+        <Input value={assignee ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignee(e.target.value)} placeholder="Minahil" />
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Sort by
-        </label>
-        <select
-          name="sortBy"
-          defaultValue={initial.sortBy ?? 'createdAt'}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Sort by</label>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as IssueSortBy)}>
+          <SelectTrigger size="sm">
+            <SelectValue>{SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Created date'}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Order
-        </label>
-        <select
-          name="sortOrder"
-          defaultValue={initial.sortOrder ?? 'desc'}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-        >
-          {ORDER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Order</label>
+        <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
+          <SelectTrigger size="sm">
+            <SelectValue>{ORDER_OPTIONS.find((o) => o.value === sortOrder)?.label ?? 'Descending'}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {ORDER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
       <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-4 2xl:col-span-1">
-        <button
-          type="submit"
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-        >
-          Apply
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400"
-        >
+        <Button onClick={handleApply}>Apply</Button>
+        <Button variant="outline" onClick={handleReset}>
           Reset
-        </button>
+        </Button>
       </div>
-    </form>
+    </div>
   );
 }

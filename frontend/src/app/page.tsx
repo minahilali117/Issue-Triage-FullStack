@@ -1,3 +1,4 @@
+import React, { Suspense } from "react";
 import Dashboard from "@/components/dashboard";
 
 export default function Home() {
@@ -28,7 +29,9 @@ export default function Home() {
             and a clean handoff between product and engineering.
           </p>
         </section>
-        <Dashboard />
+        <Suspense fallback={<div>Loading dashboard...</div>}>
+          <Dashboard />
+        </Suspense>
       </main>
     </div>
   );

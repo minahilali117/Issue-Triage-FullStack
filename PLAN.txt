@@ -53,3 +53,448 @@ FRONTEND (NEXT)
 
 TESTING APIS thru postman
 VALIDATION: req title, req status/priority/min lengths/ type validation thru ts
+
+
+```text id="z7y4ka"
+PHASE 2 PLAN -> MINI ISSUE TRIAGE DASHBOARD
+
+GOAL:
+make the app feel like an actual internal engineering tool while still keeping architecture practical nd not overengineering stuff
+
+--------------------------------------------------
+
+UPDATED TECH STACK ->
+
+FRONTEND:
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Tanstack Query
+- React Hook Form
+- Zod validation
+
+BACKEND:
+- NestJS
+- Prisma ORM
+- PostgreSQL
+- Passport JWT auth
+- Guards + decorators for RBAC
+- bcrypt password hashing
+- Multer for file uploads
+- class-validator DTO validation
+
+DEVOPS:
+- Docker Compose
+- GitHub Actions (CI)
+
+--------------------------------------------------
+
+WHY SWITCH SQLITE -> POSTGRESQL
+
+now app has:
+- auth
+- users
+- comments
+- activity logs
+- issue assignments
+- possible uploads later
+
+postgresql makes more sense now because:
+- relational structure fits better
+- more production realistic
+- better deployment support
+- easier scaling later
+- better prisma integration for relations
+
+--------------------------------------------------
+
+DATABASE DESIGN ->
+
+USERS TABLE:
+- id
+- name
+- email (unique)
+- passwordHash
+- role (ADMIN / DEVELOPER / VIEWER)
+- createdAt
+- updatedAt
+
+ISSUES TABLE:
+- id
+- title
+- description
+- status enum
+- priority enum
+- category
+- assigneeId (relation -> User)
+- createdById (relation -> User)
+- createdAt
+- updatedAt
+
+COMMENTS TABLE:
+- id
+- content
+- issueId
+- authorId
+- createdAt
+- updatedAt
+
+ACTIVITY LOG TABLE:
+- id
+- issueId
+- userId
+- actionType
+- oldValue
+- newValue
+- createdAt
+
+ATTACHMENTS TABLE (optional if time):
+- id
+- fileName
+- filePath
+- uploadedById
+- issueId
+- createdAt
+
+--------------------------------------------------
+
+ENUMS ->
+
+STATUS:
+- OPEN
+- IN_PROGRESS
+- RESOLVED
+- CLOSED
+
+PRIORITY:
+- LOW
+- MEDIUM
+- HIGH
+- CRITICAL
+
+ROLES:
+- ADMIN
+- DEVELOPER
+- VIEWER
+
+ACTIVITY TYPES:
+- ISSUE_CREATED
+- STATUS_CHANGED
+- PRIORITY_CHANGED
+- ASSIGNEE_CHANGED
+- COMMENT_ADDED
+- COMMENT_DELETED
+
+--------------------------------------------------
+
+AUTHENTICATION SYSTEM ->
+
+USE NESTJS PASSPORT JWT AUTH
+
+packages:
+- @nestjs/passport
+- passport
+- passport-jwt
+- @nestjs/jwt
+- bcrypt
+
+AUTH FLOW:
+
+SIGNUP:
+- validate req body
+- hash password using bcrypt
+- store user
+
+LOGIN:
+- validate credentials
+- generate JWT access token
+
+PROTECTED ROUTES:
+- JwtAuthGuard validates token
+- request.user injected automatically
+
+FRONTEND AUTH:
+- token stored in httpOnly cookie OR localStorage
+- persist login after refresh
+- protected dashboard routes
+
+--------------------------------------------------
+
+ROLE BASED ACCESS CONTROL (RBAC) ->
+
+USE:
+- custom @Roles decorator
+- RolesGuard
+- JwtAuthGuard
+
+PERMISSIONS:
+
+ADMIN:
+- create/edit/delete issues
+- assign issues
+- resolve issues
+- manage all comments
+- view everything
+
+DEVELOPER:
+- create issues
+- update issue status
+- assign issues to themselves
+- add/edit/delete OWN comments
+
+VIEWER:
+- only view issues/comments
+
+--------------------------------------------------
+
+BACKEND STRUCTURE ->
+
+src/
+ ├── auth/
+ │    ├── auth.controller.ts
+ │    ├── auth.service.ts
+ │    ├── jwt.strategy.ts
+ │    ├── jwt-auth.guard.ts
+ │    ├── roles.guard.ts
+ │    ├── decorators/
+ │    └── dto/
+ │
+ ├── users/
+ │
+ ├── issues/
+ │
+ ├── comments/
+ │
+ ├── activity-logs/
+ │
+ ├── uploads/
+ │
+ ├── prisma/
+ │
+ └── common/
+
+--------------------------------------------------
+
+ISSUE FEATURES ->
+
+CRUD APIs
+pagination
+sorting
+search
+filters
+
+FILTERS:
+- status
+- priority
+- category
+- assignee
+- My Issues
+- Unassigned Issues
+
+IMPORTANT:
+sync filters/search with URL params
+
+example:
+/issues?status=OPEN&priority=HIGH&page=2
+
+benefits:
+- sharable urls
+- refresh persistence
+- cleaner UX
+- browser history support
+
+--------------------------------------------------
+
+COMMENTS SYSTEM ->
+
+authenticated users can:
+- add comments
+
+developers:
+- edit/delete OWN comments
+
+admins:
+- delete ANY comment
+
+viewer:
+- read only
+
+ownership validation done in service layer
+
+--------------------------------------------------
+
+ACTIVITY LOG SYSTEM ->
+
+track:
+- issue created
+- status changed
+- priority changed
+- assignee changed
+- comment added
+- comment deleted
+
+each log stores:
+- who performed action
+- what changed
+- when it happened
+
+frontend:
+timeline/activity section inside issue details page
+
+--------------------------------------------------
+
+FILE ATTACHMENTS (OPTIONAL) ->
+
+USE:
+- multer
+- local uploads folder
+
+NOT storing files directly in DB
+
+uploads/
+ └── issue-attachments/
+
+DB stores:
+- file path
+- filename
+- uploader
+- issue relation
+
+future scalable option:
+- AWS S3
+- Cloudinary
+
+--------------------------------------------------
+
+NOTIFICATIONS (OPTIONAL) ->
+
+DO NOT use RabbitMQ rn
+
+reason:
+- app still monolithic
+- unnecessary complexity
+- no distributed services yet
+
+better options:
+- polling
+- websocket/socket.io later
+
+mention in README:
+RabbitMQ could be introduced later for async event-driven architecture.
+
+--------------------------------------------------
+
+SEED DATA ->
+
+seed users:
+- admin
+- developer
+- viewer
+
+seed:
+- sample issues
+- comments
+- activity logs
+
+include credentials in README
+
+--------------------------------------------------
+
+TESTING ->
+
+backend tests using:
+- Jest
+- Nest testing utilities
+
+test:
+- auth flow
+- RBAC permissions
+- guards
+- services
+
+examples:
+- login returns JWT
+- viewer cannot delete issue
+- developer cant delete others comments
+
+--------------------------------------------------
+
+CI/CD ->
+
+GITHUB ACTIONS:
+on push:
+- install deps
+- lint
+- run tests
+- build frontend/backend
+
+AUTO DEPLOY:
+frontend -> Vercel
+backend -> Render/Railway
+
+flow:
+push to github
+   ↓
+github actions runs checks
+   ↓
+auto deployment triggered
+   ↓
+live updated version
+
+--------------------------------------------------
+
+README UPDATE ->
+
+include:
+- setup instructions
+- env variables
+- docker instructions
+- prisma migration commands
+- seed commands
+- auth flow
+- RBAC permissions
+- API endpoints
+- test instructions
+- CI/CD setup
+- deployment links
+- assumptions/tradeoffs
+
+--------------------------------------------------
+
+HIGH PRIORITY IMPLEMENTATIONS ->
+
+1. JWT auth
+2. RBAC
+3. relational user assignment
+4. comments system
+5. activity logs
+6. protected frontend routes
+7. URL synced filters
+8. CI pipeline
+9. deployment
+
+--------------------------------------------------
+
+ONLY IF EXTRA TIME ->
+
+- refresh tokens
+- notifications
+- attachments
+- websocket updates
+- postman export
+- advanced tests
+
+--------------------------------------------------
+
+IMPORTANT ENGINEERING PRINCIPLES ->
+
+- clean architecture > overengineering
+- services handle business logic
+- controllers stay thin
+- reusable components
+- proper separation of concerns
+- relational DB design
+- secure auth implementation
+- scalable but practical decisions
+```

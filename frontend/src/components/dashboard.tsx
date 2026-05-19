@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   createIssue,
   deleteIssue,
@@ -14,14 +15,19 @@ import {
   IssueListMeta,
   IssueQuery,
   IssueSummary,
+  IssueStatus,
+  IssuePriority,
+  IssueSortBy,
+  SortOrder,
 } from '@/types/issue';
 import EmptyState from './empty-state';
 import ErrorState from './error-state';
-import FilterBar from './filter-bar';
+import FilterBar from '@/components/filter-bar';
 import IssueFormModal from './issue-form-modal';
 import IssueTable from './issue-table';
 import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
+import { Button } from './ui';
 
 const DEFAULT_QUERY: IssueQuery = {
   page: 1,
@@ -31,6 +37,10 @@ const DEFAULT_QUERY: IssueQuery = {
 };
 
 export default function Dashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [query, setQuery] = useState<IssueQuery>(DEFAULT_QUERY);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [meta, setMeta] = useState<IssueListMeta | null>(null);
@@ -80,6 +90,64 @@ export default function Dashboard() {
     };
   }, [query, refreshToken]);
 
+  // Sync URL -> state when the search params change (back/forward or direct link)
+  useEffect(() => {
+    const sp = searchParams;
+    if (!sp) return;
+
+    const next: IssueQuery = { ...DEFAULT_QUERY };
+
+    const s = sp.get('search');
+    if (s) next.search = s;
+
+    const status = sp.get('status');
+    if (status) next.status = status as IssueStatus;
+
+    const priority = sp.get('priority');
+    if (priority) next.priority = priority as IssuePriority;
+
+    const category = sp.get('category');
+    if (category) next.category = category;
+
+    const assignee = sp.get('assignee');
+    if (assignee) next.assignee = assignee;
+
+    const page = Number(sp.get('page'));
+    if (!Number.isNaN(page) && page > 0) next.page = page;
+
+    const limit = Number(sp.get('limit'));
+    if (!Number.isNaN(limit) && limit > 0) next.limit = limit;
+
+    const sortBy = sp.get('sortBy');
+    if (sortBy) next.sortBy = sortBy as IssueSortBy;
+
+    const sortOrder = sp.get('sortOrder');
+    if (sortOrder) next.sortOrder = sortOrder as SortOrder;
+
+    setQuery((prev) => ({ ...prev, ...next }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams?.toString()]);
+
+  // Update state and push URL
+  const updateQuery = (nextQuery: IssueQuery) => {
+    setQuery(nextQuery);
+
+    const params = new URLSearchParams();
+    if (nextQuery.search) params.set('search', nextQuery.search);
+    if (nextQuery.status) params.set('status', nextQuery.status);
+    if (nextQuery.priority) params.set('priority', nextQuery.priority);
+    if (nextQuery.category) params.set('category', nextQuery.category);
+    if (nextQuery.assignee) params.set('assignee', nextQuery.assignee);
+    if (nextQuery.page) params.set('page', String(nextQuery.page));
+    if (nextQuery.limit) params.set('limit', String(nextQuery.limit));
+    if (nextQuery.sortBy) params.set('sortBy', nextQuery.sortBy);
+    if (nextQuery.sortOrder) params.set('sortOrder', nextQuery.sortOrder);
+
+    const qs = params.toString();
+    const url = qs ? `${pathname}?${qs}` : pathname;
+    router.replace(url);
+  };
+
   const paginationLabel = useMemo(() => {
     if (!meta) {
       return '';
@@ -127,22 +195,21 @@ export default function Dashboard() {
             Latest activity
           </h3>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => {
             setEditingIssue(null);
             setIsFormOpen(true);
           }}
-          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
         >
           New issue
-        </button>
+        </Button>
       </div>
       <SummaryCards summary={summary} isLoading={isLoading} />
       <FilterBar
         initial={query}
-        onApply={(nextQuery) => setQuery(nextQuery)}
-        onReset={() => setQuery(DEFAULT_QUERY)}
+        onApply={updateQuery}
+        onReset={() => updateQuery(DEFAULT_QUERY)}
       />
 
       {error ? <ErrorState message={error} /> : null}
@@ -166,32 +233,32 @@ export default function Dashboard() {
         <div className="flex flex-col gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>{paginationLabel}</span>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
               onClick={() =>
-                setQuery((prev) => ({
-                  ...prev,
-                  page: Math.max(1, (prev.page ?? 1) - 1),
-                }))
+                updateQuery({
+                  ...query,
+                  page: Math.max(1, (query.page ?? 1) - 1),
+                })
               }
               disabled={(meta.page ?? 1) <= 1}
-              className="rounded-full border border-slate-300 px-3 py-1 disabled:opacity-50"
+              variant="outline"
             >
               Prev
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() =>
-                setQuery((prev) => ({
-                  ...prev,
-                  page: Math.min(meta.totalPages, (prev.page ?? 1) + 1),
-                }))
+                updateQuery({
+                  ...query,
+                  page: Math.min(meta.totalPages, (query.page ?? 1) + 1),
+                })
               }
               disabled={(meta.page ?? 1) >= meta.totalPages}
-              className="rounded-full border border-slate-300 px-3 py-1 disabled:opacity-50"
+              variant="outline"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
