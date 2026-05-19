@@ -5,9 +5,10 @@ import StatusBadge from './status-badge';
 interface IssueTableProps {
   issues: Issue[];
   onEdit: (issue: Issue) => void;
+  onDelete: (issue: Issue) => void;
 }
 
-export default function IssueTable({ issues, onEdit }: IssueTableProps) {
+export default function IssueTable({ issues, onEdit, onDelete }: IssueTableProps) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
       <table className="min-w-[900px] w-full text-left text-sm">
@@ -45,13 +46,22 @@ export default function IssueTable({ issues, onEdit }: IssueTableProps) {
                 {new Date(issue.updatedAt).toLocaleDateString()}
               </td>
               <td className="px-4 py-4">
-                <button
-                  type="button"
-                  onClick={() => onEdit(issue)}
-                  className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
-                >
-                  Edit
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(issue)}
+                    className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(issue)}
+                    className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:border-rose-300"
+                  >
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

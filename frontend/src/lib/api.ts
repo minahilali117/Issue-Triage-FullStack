@@ -76,3 +76,13 @@ export const updateIssue = async (id: number, payload: IssueUpdateInput) => {
 
   return response.json();
 };
+
+export const deleteIssue = async (id: number) => {
+  const response = await fetch(`${API_BASE_URL}/issues/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete issue.');
+  }
+};

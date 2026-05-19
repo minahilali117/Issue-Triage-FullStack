@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createIssue, fetchIssues, fetchSummary, updateIssue } from '@/lib/api';
+import {
+  createIssue,
+  deleteIssue,
+  fetchIssues,
+  fetchSummary,
+  updateIssue,
+} from '@/lib/api';
 import {
   Issue,
   IssueInput,
@@ -97,6 +103,19 @@ export default function Dashboard() {
     setRefreshToken((prev) => prev + 1);
   };
 
+  const handleDelete = async (issue: Issue) => {
+    const confirmed = window.confirm(
+      `Delete "${issue.title}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await deleteIssue(issue.id);
+    setRefreshToken((prev) => prev + 1);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -139,6 +158,7 @@ export default function Dashboard() {
             setEditingIssue(issue);
             setIsFormOpen(true);
           }}
+          onDelete={handleDelete}
         />
       )}
 
