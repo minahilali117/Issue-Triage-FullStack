@@ -1,4 +1,10 @@
-import { IssueListResponse, IssueQuery, IssueSummary } from '@/types/issue';
+import {
+  IssueInput,
+  IssueListResponse,
+  IssueQuery,
+  IssueSummary,
+  IssueUpdateInput,
+} from '@/types/issue';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -38,6 +44,34 @@ export const fetchSummary = async (): Promise<IssueSummary> => {
 
   if (!response.ok) {
     throw new Error('Failed to load summary.');
+  }
+
+  return response.json();
+};
+
+export const createIssue = async (payload: IssueInput) => {
+  const response = await fetch(`${API_BASE_URL}/issues`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create issue.');
+  }
+
+  return response.json();
+};
+
+export const updateIssue = async (id: number, payload: IssueUpdateInput) => {
+  const response = await fetch(`${API_BASE_URL}/issues/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update issue.');
   }
 
   return response.json();

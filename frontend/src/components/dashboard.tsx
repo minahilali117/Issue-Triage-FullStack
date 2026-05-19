@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { fetchIssues, fetchSummary } from '@/lib/api';
+import { createIssue, fetchIssues, fetchSummary, updateIssue } from '@/lib/api';
 import {
   Issue,
+  IssueInput,
   IssueListMeta,
   IssueQuery,
   IssueSummary,
@@ -11,6 +12,7 @@ import {
 import EmptyState from './empty-state';
 import ErrorState from './error-state';
 import FilterBar from './filter-bar';
+import IssueFormModal from './issue-form-modal';
 import IssueTable from './issue-table';
 import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
@@ -29,6 +31,9 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<IssueSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,7 +72,7 @@ export default function Dashboard() {
     return () => {
       isMounted = false;
     };
-  }, [query]);
+  }, [query, refreshToken]);
 
   const paginationLabel = useMemo(() => {
     if (!meta) {
@@ -80,8 +85,40 @@ export default function Dashboard() {
     return `Showing ${start}-${end} of ${meta.total}`;
   }, [meta]);
 
+  const handleSave = async (payload: IssueInput) => {
+    if (editingIssue) {
+      await updateIssue(editingIssue.id, payload);
+    } else {
+      await createIssue(payload);
+    }
+
+    setEditingIssue(null);
+    setIsFormOpen(false);
+    setRefreshToken((prev) => prev + 1);
+  };
+
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            Issues overview
+          </p>
+          <h3 className="text-xl font-semibold text-slate-900">
+            Latest activity
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEditingIssue(null);
+            setIsFormOpen(true);
+          }}
+          className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+        >
+          New issue
+        </button>
+      </div>
       <SummaryCards summary={summary} isLoading={isLoading} />
       <FilterBar
         initial={query}
@@ -96,7 +133,13 @@ export default function Dashboard() {
       ) : issues.length === 0 ? (
         <EmptyState />
       ) : (
-        <IssueTable issues={issues} />
+        <IssueTable
+          issues={issues}
+          onEdit={(issue) => {
+            setEditingIssue(issue);
+            setIsFormOpen(true);
+          }}
+        />
       )}
 
       {meta ? (
@@ -132,6 +175,15 @@ export default function Dashboard() {
           </div>
         </div>
       ) : null}
+      <IssueFormModal
+        isOpen={isFormOpen}
+        issue={editingIssue}
+        onClose={() => {
+          setEditingIssue(null);
+          setIsFormOpen(false);
+        }}
+        onSave={handleSave}
+      />
     </div>
   );
 }

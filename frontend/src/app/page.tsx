@@ -13,9 +13,6 @@ export default function Home() {
               Issue Triage Dashboard
             </h1>
           </div>
-          <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-            New Issue
-          </button>
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">

@@ -4,9 +4,10 @@ import StatusBadge from './status-badge';
 
 interface IssueTableProps {
   issues: Issue[];
+  onEdit: (issue: Issue) => void;
 }
 
-export default function IssueTable({ issues }: IssueTableProps) {
+export default function IssueTable({ issues, onEdit }: IssueTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
       <table className="w-full text-left text-sm">
@@ -18,6 +19,7 @@ export default function IssueTable({ issues }: IssueTableProps) {
             <th className="px-4 py-3">Category</th>
             <th className="px-4 py-3">Assignee</th>
             <th className="px-4 py-3">Updated</th>
+            <th className="px-4 py-3">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -41,6 +43,15 @@ export default function IssueTable({ issues }: IssueTableProps) {
               </td>
               <td className="px-4 py-4 text-slate-500">
                 {new Date(issue.updatedAt).toLocaleDateString()}
+              </td>
+              <td className="px-4 py-4">
+                <button
+                  type="button"
+                  onClick={() => onEdit(issue)}
+                  className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                >
+                  Edit
+                </button>
               </td>
             </tr>
           ))}

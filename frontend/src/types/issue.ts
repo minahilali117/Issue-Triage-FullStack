@@ -27,6 +27,17 @@ export interface Issue {
   updatedAt: string;
 }
 
+export interface IssueInput {
+  title: string;
+  description: string;
+  status: IssueStatus;
+  priority: IssuePriority;
+  category: string;
+  assignee?: string | null;
+}
+
+export type IssueUpdateInput = Partial<IssueInput>;
+
 export interface IssueSummary {
   total: number;
   open: number;
