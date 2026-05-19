@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { IssuePriority, IssueSortBy, IssueStatus, SortOrder } from '../issues.types';
+import { IssuePriority, IssueStatus } from '../issues.types';
+import type { IssueSortBy, SortOrder } from '../issues.types';
 
 export class ListIssuesDto {
   @IsString()

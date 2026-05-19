@@ -4,7 +4,7 @@ import { CreateIssueDto } from './dto/create-issue.dto';
 import { ListIssuesDto } from './dto/list-issues.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { IssueSortBy, SortOrder } from './issues.types';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class IssuesService {
@@ -35,8 +35,8 @@ export class IssuesService {
 
     if (query.search) {
       where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
+        { title: { contains: query.search } },
+        { description: { contains: query.search } },
       ];
     }
 
