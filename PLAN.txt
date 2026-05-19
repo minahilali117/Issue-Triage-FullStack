@@ -1,0 +1,55 @@
+Problem statement:
+
+Build a Mini Issue Triage Dashboard using Next.js, NestJS, TypeScript, and any internal/local/free database option you prefer, such as PostgreSQL local, MongoDB Atlas free tier, Supabase free tier, Neon free tier, SQLite, or any internal DB setup available to you. Please do not use a paid database service.
+The goal is to create a small internal tool where users can create, view, update, delete, search, and filter engineering issues. Each issue should have title, description, status, priority, category, optional assignee, createdAt, and updatedAt.
+Please include:
+NestJS backend with proper modules, controllers, services, DTOs, and validation
+Next.js frontend dashboard
+CRUD APIs
+Search and filters
+Dashboard summary cards
+Database persistence
+README with setup instructions, DB instructions, env variables, and API endpoints
+Optional if you finish early: pagination, sorting, seed data, Docker Compose, or basic tests.
+This should be completed within one working day. The goal is not to overbuild it, but to show clean architecture, practical full-stack thinking, and good TypeScript quality.
+
+
+PLAN
+
+TECH STACK-> T3 use prismma for db, backend integration, tailwind css for frontend styling (modern, simple)
+
+DB design-> SQLite/Mongo for local, Postgre/Mongo docker image for later containerization
+
+ISSUES table fields:
+ID -> PRIMARY KEY
+title,
+description, 
+status (enumerate) ("OPEN"/ "CLOSED" / "RESOLVED" / "IN-PROGRESS")
+priority (enumerate) ("LOW" / "MEDIUM" / "HIGH" / "CRITICAL")
+category, 
+optional assignee, 
+createdAt, 
+updatedAt
+
+BACKEND (NEST)
+    prisma
+    issues controller (http reqs)
+    service (business logic and prisma queries)
+    create issue dto (enforce types)
+    CRUD APIs
+    filter by: status, priority, category, assignee
+    pagination: limit, page
+    sort by: createdAt, updatedAt, priority
+    write a prisma seed script to make 15-20 fake issues
+
+
+FRONTEND (NEXT)
+    baisc naivgation at the top bar/side panel
+    summaru cards: total issues, open, critical, resolved issue
+    filter and search bar
+    some sort of clean/simplified display of the issue table
+    smth for create/edit issue
+    clean/modern/simple vibe
+
+TESTING APIS thru postman
+VALIDATION: req title, req status/priority/min lengths/ type validation thru ts
