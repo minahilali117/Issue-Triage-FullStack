@@ -52,6 +52,25 @@ npm run dev
 
 The app runs on http://localhost:3000 by default.
 
+## Docker
+
+Build and run both services with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Stop and remove containers:
+
+```bash
+docker compose down
+```
+
+Ports:
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:4000
+
 ## Environment Variables
 
 ### backend/.env
