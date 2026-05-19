@@ -80,9 +80,9 @@ export default function IssueFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
               {isEditing ? 'Edit issue' : 'New issue'}
@@ -128,7 +128,7 @@ export default function IssueFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 Status
@@ -167,7 +167,7 @@ export default function IssueFormModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 Category

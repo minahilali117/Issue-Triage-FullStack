@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-black/10 bg-white/70 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
               Internal tool

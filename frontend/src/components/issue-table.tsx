@@ -9,8 +9,8 @@ interface IssueTableProps {
 
 export default function IssueTable({ issues, onEdit }: IssueTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
+      <table className="min-w-[900px] w-full text-left text-sm">
         <thead className="bg-slate-900 text-xs uppercase tracking-[0.2em] text-white">
           <tr>
             <th className="px-4 py-3">Title</th>

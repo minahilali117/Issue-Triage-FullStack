@@ -1,4 +1,10 @@
-import { IssuePriority, IssueQuery, IssueStatus } from '@/types/issue';
+import {
+  IssuePriority,
+  IssueQuery,
+  IssueSortBy,
+  IssueStatus,
+  SortOrder,
+} from '@/types/issue';
 
 interface FilterBarProps {
   initial: IssueQuery;
@@ -8,11 +14,20 @@ interface FilterBarProps {
 
 const STATUS_OPTIONS = Object.values(IssueStatus);
 const PRIORITY_OPTIONS = Object.values(IssuePriority);
+const SORT_OPTIONS: Array<{ label: string; value: IssueSortBy }> = [
+  { label: 'Created date', value: 'createdAt' },
+  { label: 'Updated date', value: 'updatedAt' },
+  { label: 'Priority', value: 'priority' },
+];
+const ORDER_OPTIONS: Array<{ label: string; value: SortOrder }> = [
+  { label: 'Descending', value: 'desc' },
+  { label: 'Ascending', value: 'asc' },
+];
 
 export default function FilterBar({ initial, onApply, onReset }: FilterBarProps) {
   return (
     <form
-      className="grid gap-3 rounded-2xl border border-black/10 bg-white/80 p-4 backdrop-blur md:grid-cols-[1.2fr_repeat(4,1fr)_auto]"
+      className="grid grid-cols-1 gap-3 rounded-2xl border border-black/10 bg-white/80 p-4 backdrop-blur sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7"
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
@@ -25,8 +40,14 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
           assignee: String(formData.get('assignee') ?? '').trim() || undefined,
           page: 1,
           limit: initial.limit ?? 10,
-          sortBy: initial.sortBy ?? 'createdAt',
-          sortOrder: initial.sortOrder ?? 'desc',
+          sortBy:
+            (formData.get('sortBy') as IssueSortBy) ??
+            initial.sortBy ??
+            'createdAt',
+          sortOrder:
+            (formData.get('sortOrder') as SortOrder) ??
+            initial.sortOrder ??
+            'desc',
         });
       }}
     >
@@ -97,7 +118,39 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400"
         />
       </div>
-      <div className="flex items-end gap-2">
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
+          Sort by
+        </label>
+        <select
+          name="sortBy"
+          defaultValue={initial.sortBy ?? 'createdAt'}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
+          Order
+        </label>
+        <select
+          name="sortOrder"
+          defaultValue={initial.sortOrder ?? 'desc'}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+        >
+          {ORDER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-4 2xl:col-span-1">
         <button
           type="submit"
           className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"

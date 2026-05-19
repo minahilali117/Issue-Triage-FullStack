@@ -99,7 +99,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
             Issues overview
@@ -143,7 +143,7 @@ export default function Dashboard() {
       )}
 
       {meta ? (
-        <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
+        <div className="flex flex-col gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>{paginationLabel}</span>
           <div className="flex gap-2">
             <button
