@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { PrismaModule } from '../prisma.module';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { IssuesController } from './issues.controller';
 import { IssuesService } from './issues.service';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [IssuesController],
-  providers: [PrismaService, IssuesService],
+  providers: [IssuesService, JwtAuthGuard, RolesGuard],
 })
 export class IssuesModule {}

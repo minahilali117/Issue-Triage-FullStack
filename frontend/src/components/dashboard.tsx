@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/components/auth-provider';
 import {
   createIssue,
   deleteIssue,
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
 
   const [query, setQuery] = useState<IssueQuery>(DEFAULT_QUERY);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -194,16 +196,24 @@ export default function Dashboard() {
           <h3 className="text-xl font-semibold text-slate-900">
             Latest activity
           </h3>
+          <p className="text-sm text-slate-500">
+            Signed in as {user?.name ?? user?.email}
+          </p>
         </div>
-        <Button
-          type="button"
-          onClick={() => {
-            setEditingIssue(null);
-            setIsFormOpen(true);
-          }}
-        >
-          New issue
-        </Button>
+        <div className="flex gap-3">
+          <Button type="button" variant="outline" onClick={signOut}>
+            Logout
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setEditingIssue(null);
+              setIsFormOpen(true);
+            }}
+          >
+            New issue
+          </Button>
+        </div>
       </div>
       <SummaryCards summary={summary} isLoading={isLoading} />
       <FilterBar

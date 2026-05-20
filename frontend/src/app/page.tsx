@@ -1,7 +1,33 @@
-import React, { Suspense } from "react";
-import Dashboard from "@/components/dashboard";
+"use client";
+
+import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/auth-provider';
+
+const Dashboard = dynamic(() => import('@/components/dashboard'), {
+  ssr: false,
+  loading: () => <div>Loading dashboard...</div>,
+});
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isReady } = useAuth();
+
+  useEffect(() => {
+    if (isReady && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, isReady, router]);
+
+  if (!isReady) {
+    return <div className="min-h-screen p-8">Loading session...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <div className="min-h-screen p-8">Redirecting to login...</div>;
+  }
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-black/10 bg-white/70 backdrop-blur">
@@ -29,9 +55,7 @@ export default function Home() {
             and a clean handoff between product and engineering.
           </p>
         </section>
-        <Suspense fallback={<div>Loading dashboard...</div>}>
-          <Dashboard />
-        </Suspense>
+        <Dashboard />
       </main>
     </div>
   );
