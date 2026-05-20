@@ -1,0 +1,333 @@
+________________________________________________________________
+PHASE 1 -> POSTGRES MIGRATION + PRISMA RESTRUCTURE
+________________________________________________________________
+
+Refactor the existing NestJS + Prisma backend from SQLite to PostgreSQL.
+
+Current stack:
+- NestJS
+- Prisma
+- Next.js frontend
+- Docker Compose already exists
+
+Tasks:
+1. Update Prisma datasource from SQLite to PostgreSQL
+2. Redesign Prisma schema to support:
+   - Users
+   - Issues
+   - Comments
+   - Activity Logs
+3. Add proper Prisma relations:
+   - Issue -> assignee(User)
+   - Issue -> createdBy(User)
+   - Comment -> author(User)
+   - Comment -> issue(Issue)
+   - ActivityLog -> issue(Issue)
+   - ActivityLog -> user(User)
+4. Add enums:
+   - Role
+   - IssueStatus
+   - IssuePriority
+   - ActivityType
+5. Create proper timestamps and relation constraints
+6. Generate clean migrations
+7. Update Docker Compose to include PostgreSQL container
+8. Keep architecture clean and production-like
+
+Requirements:
+- Use Prisma best practices
+- Avoid redundant fields
+- Use proper relational modeling
+- Keep naming consistent with existing codebase
+- Preserve current issue CRUD functionality
+
+
+________________________________________________________________
+PHASE 2 -> AUTHENTICATION SYSTEM
+________________________________________________________________
+Implement JWT authentication in the existing NestJS backend using Passport.js strategies and guards.
+
+Current stack:
+- NestJS
+- Prisma
+- PostgreSQL
+- Existing issue APIs already implemented
+
+Requirements:
+1. Create Auth module with:
+   - auth.controller.ts
+   - auth.service.ts
+   - jwt.strategy.ts
+   - jwt-auth.guard.ts
+   - dto folder
+2. Use:
+   - @nestjs/passport
+   - passport-jwt
+   - @nestjs/jwt
+   - bcrypt
+3. Implement:
+   - signup
+   - login
+   - protected routes
+4. Hash passwords securely using bcrypt
+5. Validate login credentials properly
+6. JWT payload should include:
+   - userId
+   - role
+   - email
+7. Add DTO validation using class-validator
+8. Add global ValidationPipe best practices
+9. Return clean API responses
+10. Keep controllers thin and business logic in services
+
+Frontend requirements:
+- Persist auth state after refresh
+- Add protected dashboard routing
+- Redirect unauthenticated users to login page
+
+Do not implement RBAC yet.
+Focus only on authentication foundation.
+
+________________________________________________________________
+PHASE 3 -> RBAC
+________________________________________________________________
+Implement role-based access control (RBAC) in the existing NestJS backend.
+
+Current auth system already exists with JWT authentication.
+
+Roles:
+- ADMIN
+- DEVELOPER
+- VIEWER
+
+Requirements:
+1. Create:
+   - Roles decorator
+   - RolesGuard
+2. Integrate with existing JwtAuthGuard
+3. Use NestJS metadata reflector properly
+4. Protect issue/comment endpoints based on roles
+
+Permissions:
+ADMIN:
+- full issue/comment management
+
+DEVELOPER:
+- create issues
+- update issue status
+- assign issues to themselves
+- manage own comments
+
+VIEWER:
+- read-only access
+
+Requirements:
+- Follow NestJS best practices
+- Keep authorization logic clean
+- Avoid duplicated permission logic
+- Use decorators cleanly on routes
+- Return proper forbidden responses
+
+________________________________________________________________
+PHASE 4 -> ISSUE OWNERSHIP + USER ASSIGNMENTS
+________________________________________________________________
+Refactor the issue system to support relational user ownership and assignments.
+
+Current issue system already exists.
+
+Requirements:
+1. Replace text-based assignee field with relational user assignment
+2. Add:
+   - assigneeId
+   - createdById
+3. Update issue DTOs and services
+4. Automatically set createdBy from authenticated user
+5. Add filters:
+   - My Issues
+   - Unassigned Issues
+6. Ensure Prisma queries include related user data cleanly
+7. Update issue responses to include:
+   - assignee info
+   - creator info
+8. Maintain pagination/search/filter compatibility
+
+Frontend:
+- Show assigned user names
+- Add “My Issues” filter
+- Add “Unassigned” filter
+- Update issue forms to select registered users
+
+
+________________________________________________________________
+PHASE 5 -> COMMENTS SYSTEM
+________________________________________________________________
+Implement issue comments functionality in the existing Issue Triage Dashboard.
+
+Requirements:
+1. Create Comments module:
+   - controller
+   - service
+   - DTOs
+2. Support:
+   - create comment
+   - edit comment
+   - delete comment
+   - get comments for issue
+3. Comments must belong to:
+   - authenticated user
+   - issue
+4. Ownership rules:
+   - users can edit/delete own comments
+   - admin can delete any comment
+5. Add proper authorization checks in service layer
+6. Add DTO validation
+7. Return comments ordered by creation time
+8. Include author information in responses
+
+Frontend:
+- comments section inside issue details
+- add/edit/delete comment UI
+- role-aware buttons/actions
+- clean UX using shadcn/ui
+
+________________________________________________________________
+PHASE 6 -> ACTIVITY LOG SYSTEM
+________________________________________________________________
+Implement an activity log system for issue tracking actions.
+
+Requirements:
+1. Create ActivityLog module/table
+2. Track:
+   - issue created
+   - status changed
+   - priority changed
+   - assignee changed
+   - comment added
+   - comment deleted
+3. Store:
+   - acting user
+   - issue
+   - action type
+   - old value
+   - new value
+   - timestamp
+4. Create reusable logging helper/service
+5. Automatically create activity logs during issue/comment actions
+6. Avoid duplicated logging logic across services
+7. Use enums for action types
+
+Frontend:
+- activity timeline section inside issue details page
+- show:
+   - who performed action
+   - what changed
+   - when it happened
+
+________________________________________________________________
+PHASE 7 -> FRONTEND AUTH + ROLE AWARE UI
+________________________________________________________________
+Implement frontend authentication integration and role-aware UI behavior.
+
+Current backend auth/RBAC already exists.
+
+Requirements:
+1. Add login/signup pages
+2. Persist authentication after refresh
+3. Protect dashboard routes
+4. Redirect unauthenticated users properly
+5. Store auth state cleanly
+6. Integrate API token handling
+7. Add logout functionality
+
+Role-aware UI:
+- hide restricted actions/buttons
+- viewers should not see edit/delete actions
+- developers should only manage own comments
+- admins should see full controls
+
+Requirements:
+- Use TanStack Query
+- Use React Hook Form
+- Use Zod validation
+- Use shadcn/ui components
+- Keep components modular and reusable
+
+________________________________________________________________
+PHASE 8 -> FILE ATTACHMENTS
+________________________________________________________________
+Implement issue file attachments using Multer and Docker-persistent local storage.
+
+Requirements:
+1. Configure Multer in NestJS
+2. Store uploaded files locally
+3. Create uploads folder structure:
+   uploads/issue-attachments
+4. Add attachment metadata table:
+   - fileName
+   - filePath
+   - uploadedBy
+   - issueId
+5. Add upload/download endpoints
+6. Ensure Docker persistence using mounted volumes
+7. Validate uploaded file types/sizes
+8. Keep implementation scalable for future S3 migration
+
+Frontend:
+- upload attachment UI
+- show uploaded files per issue
+- allow downloading attachments
+
+________________________________________________________________
+PHASE 9 -> WEBSOCKETS
+________________________________________________________________
+Implement lightweight realtime updates using NestJS WebSockets and socket.io.
+
+Requirements:
+1. Add websocket gateway
+2. Emit events for:
+   - issue updates
+   - comments added
+   - issue assignments
+3. Keep implementation lightweight and monolithic-friendly
+4. Avoid unnecessary complexity
+5. Use proper gateway structure and event naming
+
+Frontend:
+- connect to websocket server
+- update issue/comment UI in realtime
+- show lightweight realtime notifications/toasts
+
+________________________________________________________________
+PHASE 10 -> TESTING + CI
+________________________________________________________________
+Implement lightweight E2E/integration-style backend testing and CI pipeline.
+
+Testing Requirements:
+1. Use:
+   - Supertest
+   - Nest testing utilities
+2. Focus on real API/business flows
+3. Test:
+   - signup/login
+   - JWT protected routes
+   - RBAC permissions
+   - ownership validation
+4. Example tests:
+   - viewer cannot delete issue
+   - developer cannot delete others comments
+   - login returns JWT
+   - authenticated user can create issue
+
+Postman:
+- create organized Postman collection
+- include auth/issues/comments/RBAC flows
+
+CI:
+- create GitHub Actions workflow
+- run:
+   - install
+   - lint
+   - tests
+   - build
+on every push
+

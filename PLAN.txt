@@ -61,6 +61,64 @@ PHASE 2 PLAN -> MINI ISSUE TRIAGE DASHBOARD
 GOAL:
 make the app feel like an actual internal engineering tool while still keeping architecture practical nd not overengineering stuff
 
+
+--------------------------------------------------
+ITERATION 2
+--------------------------------------------------
+
+For the next extension, please add Phase 2 features to the Issue Triage Dashboard.
+Required features:
+Add authentication
+Users should be able to sign up, log in, log out, and stay logged in after refresh.
+Use JWT-based authentication on the NestJS backend.
+Passwords should be securely hashed.
+The issue dashboard should be accessible only to authenticated users.
+Add role-based access control
+Add three roles:
+admin
+developer
+viewer
+Permissions:
+admin can create, edit, delete, assign, comment, and resolve issues.
+developer can create issues, update issue status, assign issues to themselves, and add/edit/delete their own comments.
+viewer can only view issues and comments.
+Replace assignee text with real user assignment
+Issues should be assignable to registered users.
+Add filters for “My Issues” and “Unassigned Issues”.
+Add issue comments
+Authenticated users can comment on issues.
+Users can edit/delete their own comments.
+Admin can delete any comment.
+Add activity log
+Track important issue actions, such as:
+issue created
+status changed
+priority changed
+assignee changed
+comment added
+comment deleted
+The activity log should show who performed the action and when.
+Add seed data
+Please add seed users for:
+admin
+developer
+viewer
+Also add a few sample issues and comments.
+Update README
+Include:
+auth flow
+user roles and permissions
+seed user credentials
+updated API endpoints
+Docker setup instructions
+any assumptions or tradeoffs
+Optional if you finish early:
+refresh tokens
+in-app notifications
+file attachments for issues
+automated backend tests
+Postman collection export
+The goal is to make the app feel closer to a real internal engineering tool while keeping the scope controlled
 --------------------------------------------------
 
 UPDATED TECH STACK ->
@@ -215,7 +273,7 @@ PROTECTED ROUTES:
 - request.user injected automatically
 
 FRONTEND AUTH:
-- token stored in httpOnly cookie OR localStorage
+- token stored in httpOnly cookie
 - persist login after refresh
 - protected dashboard routes
 
@@ -274,8 +332,8 @@ src/
  │
  └── common/
 
+BELOW IS WHATS ALREADY DONE
 --------------------------------------------------
-
 ISSUE FEATURES ->
 
 CRUD APIs
@@ -295,15 +353,7 @@ FILTERS:
 IMPORTANT:
 sync filters/search with URL params
 
-example:
-/issues?status=OPEN&priority=HIGH&page=2
-
-benefits:
-- sharable urls
-- refresh persistence
-- cleaner UX
-- browser history support
-
+BELOW IS WHAT NEEDS TO BE DONE
 --------------------------------------------------
 
 COMMENTS SYSTEM ->
@@ -344,7 +394,7 @@ timeline/activity section inside issue details page
 
 --------------------------------------------------
 
-FILE ATTACHMENTS (OPTIONAL) ->
+FILE ATTACHMENTS ->
 
 USE:
 - multer
@@ -362,12 +412,13 @@ DB stores:
 - issue relation
 
 future scalable option:
-- AWS S3
-- Cloudinary
+- AWS S3 bucket
+
+MAKE SURE TO CONSIDER PERSISTENCE WITH DOCKER (use volumes)
 
 --------------------------------------------------
 
-NOTIFICATIONS (OPTIONAL) ->
+NOTIFICATIONS ->
 
 DO NOT use RabbitMQ rn
 
@@ -376,9 +427,9 @@ reason:
 - unnecessary complexity
 - no distributed services yet
 
-better options:
-- polling
-- websocket/socket.io later
+better option:
+- websocket/socket.io (use this for now cus its more impressive)
+- polling 
 
 mention in README:
 RabbitMQ could be introduced later for async event-driven architecture.
@@ -403,20 +454,37 @@ include credentials in README
 
 TESTING ->
 
-backend tests using:
-- Jest
+lightweight E2E/integration-style backend testing
+
+TOOLS:
+- Supertest
 - Nest testing utilities
+
+focus on testing actual API/business flows through real HTTP requests instead of isolated unit tests
 
 test:
 - auth flow
 - RBAC permissions
-- guards
-- services
+- protected routes/guards
+- ownership validation
 
 examples:
+- signup/login works
 - login returns JWT
+- unauthorized users blocked from protected routes
 - viewer cannot delete issue
-- developer cant delete others comments
+- developer cannot edit/delete others comments
+- admin can delete any comment
+- authenticated user can create issue
+- issue assignment/status update works
+
+POSTMAN:
+- organized Postman collection for API testing/documentation
+- includes auth, issues, comments, RBAC, and filters endpoints
+- exported collection included in repository
+
+CI:
+- GitHub Actions pipeline runs linting, tests, and builds automatically on push
 
 --------------------------------------------------
 
@@ -429,6 +497,7 @@ on push:
 - run tests
 - build frontend/backend
 
+DONT IMPLEMENT VERCEL/RENDER/RAILWAY THING RN, js do ci
 AUTO DEPLOY:
 frontend -> Vercel
 backend -> Render/Railway
@@ -470,13 +539,11 @@ HIGH PRIORITY IMPLEMENTATIONS ->
 4. comments system
 5. activity logs
 6. protected frontend routes
-7. URL synced filters
-8. CI pipeline
-9. deployment
+7. CI pipeline
 
 --------------------------------------------------
 
-ONLY IF EXTRA TIME ->
+SECOND ITERATION ->
 
 - refresh tokens
 - notifications
@@ -497,4 +564,3 @@ IMPORTANT ENGINEERING PRINCIPLES ->
 - relational DB design
 - secure auth implementation
 - scalable but practical decisions
-```
