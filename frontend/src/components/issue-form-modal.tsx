@@ -22,11 +22,11 @@ interface IssueFormModalProps {
 }
 
 const issueSchema = z.object({
-  title: z.string().min(3),
-  description: z.string().min(10),
+  title: z.string().min(3).max(200),
+  description: z.string().min(10).max(5000),
   status: z.enum(IssueStatus),
   priority: z.enum(IssuePriority),
-  category: z.string().min(1),
+  category: z.string().min(1).max(100),
   assigneeId: z.number().int().positive().nullable().optional(),
 });
 
@@ -96,7 +96,6 @@ export default function IssueFormModal({
         },
         issue?.id,
       );
-      onClose();
     } finally {
       setIsSaving(false);
     }
@@ -130,6 +129,7 @@ export default function IssueFormModal({
             </label>
             <Input
               {...register('title')}
+              maxLength={200}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
             />
             {errors.title ? <p className="text-xs text-rose-600">{errors.title.message}</p> : null}
@@ -141,6 +141,7 @@ export default function IssueFormModal({
             </label>
             <textarea
               {...register('description')}
+              maxLength={5000}
               rows={4}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
             />
@@ -193,6 +194,7 @@ export default function IssueFormModal({
               </label>
               <Input
                 {...register('category')}
+                maxLength={100}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
               />
               {errors.category ? <p className="text-xs text-rose-600">{errors.category.message}</p> : null}

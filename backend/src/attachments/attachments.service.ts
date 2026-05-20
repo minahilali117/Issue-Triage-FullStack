@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { unlink } from 'fs/promises';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -47,6 +53,37 @@ export class AttachmentsService {
     }
 
     return attachment;
+  }
+
+  async remove(
+    issueId: number,
+    attachmentId: number,
+    actor: { userId: number; role: Role },
+  ) {
+    const attachment = await this.prisma.attachment.findFirst({
+      where: { id: attachmentId, issueId },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    const canDelete =
+      actor.role === Role.ADMIN || attachment.uploadedById === actor.userId;
+
+    if (!canDelete) {
+      throw new ForbiddenException('You can only delete your own attachments');
+    }
+
+    await this.prisma.attachment.delete({ where: { id: attachment.id } });
+
+    try {
+      await unlink(attachment.filePath);
+    } catch {
+      // Metadata deletion should still succeed if the file was already missing.
+    }
+
+    return { success: true };
   }
 
   private async ensureIssue(issueId: number) {

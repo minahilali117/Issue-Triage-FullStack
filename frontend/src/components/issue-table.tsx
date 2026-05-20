@@ -55,11 +55,11 @@ export default function IssueTable({
               <td className="px-4 py-4 text-slate-700">
                 {issue.assignee?.name ?? issue.assignee?.email ?? 'Unassigned'}
               </td>
-              <td className="px-4 py-4 text-slate-700">
-                {issue.createdBy?.name ?? issue.createdBy?.email}
-              </td>
               <td className="px-4 py-4 text-slate-500">
                 {new Date(issue.updatedAt).toLocaleDateString()}
+              </td>
+              <td className="px-4 py-4 text-slate-700">
+                {issue.createdBy?.name ?? issue.createdBy?.email}
               </td>
               <td className="px-4 py-4">
                 <div className="flex flex-wrap gap-2">

@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { AuthResponse, AuthUser } from '@/types/auth';
+import { fetchCurrentUser } from '@/lib/api';
 
 const AUTH_STORAGE_KEY = 'triage_dashboard_auth';
 
@@ -35,9 +36,30 @@ const readStoredSession = (): AuthResponse | null => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthResponse | null>(() =>
-    readStoredSession(),
-  );
+  const [session, setSession] = useState<AuthResponse | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const storedSession = readStoredSession();
+    if (storedSession) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSession(storedSession);
+      void fetchCurrentUser()
+        .then((user) => {
+          const syncedSession = { ...storedSession, user };
+          setSession(syncedSession);
+          window.localStorage.setItem(
+            AUTH_STORAGE_KEY,
+            JSON.stringify(syncedSession),
+          );
+        })
+        .catch(() => {
+          setSession(null);
+          window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        });
+    }
+    setIsReady(true);
+  }, []);
 
   const signIn = (session: AuthResponse) => {
     setSession(session);
@@ -53,12 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user: session?.user ?? null,
       accessToken: session?.accessToken ?? null,
-      isReady: true,
+      isReady,
       isAuthenticated: Boolean(session?.user && session?.accessToken),
       signIn,
       signOut,
     }),
-    [session],
+    [isReady, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

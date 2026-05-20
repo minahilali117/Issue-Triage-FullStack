@@ -82,7 +82,7 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
     <div className="grid grid-cols-1 gap-3 rounded-2xl border border-black/10 bg-white/80 p-4 backdrop-blur sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       <div className="flex flex-col gap-1">
         <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Search</label>
-        <Input value={search ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Auth errors, flaky builds..." />
+        <Input value={search ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Auth errors, flaky builds..." maxLength={200} />
       </div>
 
       <div className="flex flex-col gap-1">
@@ -121,7 +121,7 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
 
       <div className="flex flex-col gap-1">
         <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Category</label>
-        <Input value={category ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)} placeholder="Backend" />
+        <Input value={category ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)} placeholder="Backend" maxLength={100} />
       </div>
 
       <div className="flex flex-col gap-1">

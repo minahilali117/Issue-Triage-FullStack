@@ -19,9 +19,9 @@ export default function LoginPage() {
   const schema = useMemo(
     () =>
       z.object({
-        email: z.string().email(),
-        password: z.string().min(6),
-        name: isSignup ? z.string().min(1) : z.string().optional(),
+        email: z.string().email().max(255),
+        password: z.string().min(6).max(128),
+        name: isSignup ? z.string().min(1).max(100) : z.string().max(100).optional(),
       }),
     [isSignup],
   );
@@ -82,20 +82,20 @@ export default function LoginPage() {
           {isSignup ? (
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Name</label>
-              <Input {...register('name')} placeholder="Your name" />
+              <Input {...register('name')} placeholder="Your name" maxLength={100} />
               {errors.name ? <p className="text-xs text-rose-600">{errors.name.message}</p> : null}
             </div>
           ) : null}
 
           <div className="grid gap-2">
             <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Email</label>
-            <Input type="email" {...register('email')} placeholder="you@example.com" />
+            <Input type="email" {...register('email')} placeholder="you@example.com" maxLength={255} />
             {errors.email ? <p className="text-xs text-rose-600">{errors.email.message}</p> : null}
           </div>
 
           <div className="grid gap-2">
             <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Password</label>
-            <Input type="password" {...register('password')} placeholder="********" />
+            <Input type="password" {...register('password')} placeholder="********" maxLength={128} />
             {errors.password ? <p className="text-xs text-rose-600">{errors.password.message}</p> : null}
           </div>
 

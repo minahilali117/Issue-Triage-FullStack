@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import { useAuth } from '@/components/auth-provider';
 import {
+  ApiError,
   apiBaseUrl,
   createIssue,
   deleteIssue,
@@ -33,6 +34,9 @@ import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
 import { Button } from './ui';
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof ApiError || error instanceof Error ? error.message : fallback;
+
 const DEFAULT_QUERY: IssueQuery = {
   page: 1,
   limit: 10,
@@ -51,6 +55,7 @@ export default function Dashboard() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const issuesQuery = useQuery({
     queryKey: ['issues', query],
@@ -72,11 +77,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     const socket = io(apiBaseUrl, { transports: ['websocket', 'polling'] });
-    const refresh = () => refreshDashboard();
-    socket.on('issue.updated', refresh);
-    socket.on('issue.assigned', refresh);
+    socket.on('issue.updated', () => {
+      refreshDashboard();
+      setNotice('Issue updated in realtime.');
+    });
+    socket.on('issue.assigned', () => {
+      refreshDashboard();
+      setNotice('Issue assignment changed.');
+    });
     socket.on('comment.added', (payload: { issueId?: number }) => {
-      refresh();
+      refreshDashboard();
+      setNotice('New comment added.');
       if (payload.issueId) {
         void queryClient.invalidateQueries({ queryKey: ['issue', payload.issueId] });
         void queryClient.invalidateQueries({ queryKey: ['comments', payload.issueId] });
@@ -128,6 +139,8 @@ export default function Dashboard() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery((prev) => ({ ...prev, ...next }));
+    const selected = Number(sp.get('issueId'));
+    setSelectedIssueId(!Number.isNaN(selected) && selected > 0 ? selected : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams?.toString()]);
 
@@ -151,6 +164,18 @@ export default function Dashboard() {
     const qs = params.toString();
     const url = qs ? `${pathname}?${qs}` : pathname;
     router.replace(url);
+  };
+
+  const updateSelectedIssue = (issueId: number | null) => {
+    setSelectedIssueId(issueId);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (issueId) {
+      params.set('issueId', String(issueId));
+    } else {
+      params.delete('issueId');
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
   const issues = issuesQuery.data?.data ?? [];
@@ -180,17 +205,35 @@ export default function Dashboard() {
     onSuccess: () => {
       setEditingIssue(null);
       setIsFormOpen(false);
+      setNotice(editingIssue ? 'Issue updated.' : 'Issue created.');
       refreshDashboard();
+    },
+    onError: (error) => {
+      setNotice(getErrorMessage(error, 'Could not save issue.'));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteIssue(id),
-    onSuccess: refreshDashboard,
+    onSuccess: () => {
+      setNotice('Issue deleted.');
+      refreshDashboard();
+    },
+    onError: (error) => {
+      const role = user?.role ?? 'unknown role';
+      const email = user?.email ?? 'unknown user';
+      setNotice(
+        `${getErrorMessage(error, 'Could not delete issue.')} Signed in as ${email} (${role}). Only ADMIN can delete issues.`,
+      );
+    },
   });
 
   const handleSave = async (payload: IssueInput) => {
-    await saveMutation.mutateAsync(payload);
+    try {
+      await saveMutation.mutateAsync(payload);
+    } catch {
+      // Rendered through mutation onError.
+    }
   };
 
   const handleDelete = async (issue: Issue) => {
@@ -202,7 +245,11 @@ export default function Dashboard() {
       return;
     }
 
-    await deleteMutation.mutateAsync(issue.id);
+    try {
+      await deleteMutation.mutateAsync(issue.id);
+    } catch {
+      // Rendered through mutation onError.
+    }
   };
 
   const canCreateIssues = user?.role === 'ADMIN' || user?.role === 'DEVELOPER';
@@ -218,7 +265,7 @@ export default function Dashboard() {
             Latest activity
           </h3>
           <p className="text-sm text-slate-500">
-            Signed in as {user?.name ?? user?.email}
+            Signed in as {user?.name ?? user?.email} ({user?.role})
           </p>
         </div>
         <div className="flex gap-3">
@@ -239,6 +286,18 @@ export default function Dashboard() {
         </div>
       </div>
       <SummaryCards summary={summaryQuery.data ?? null} isLoading={isLoading} />
+      {notice ? (
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <span>{notice}</span>
+          <button
+            type="button"
+            className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500"
+            onClick={() => setNotice(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <FilterBar
         initial={query}
         onApply={updateQuery}
@@ -260,7 +319,7 @@ export default function Dashboard() {
             setIsFormOpen(true);
           }}
           onDelete={handleDelete}
-          onView={(issue) => setSelectedIssueId(issue.id)}
+          onView={(issue) => updateSelectedIssue(issue.id)}
         />
       )}
 
@@ -309,7 +368,8 @@ export default function Dashboard() {
       />
       <IssueDetailsModal
         issueId={selectedIssueId}
-        onClose={() => setSelectedIssueId(null)}
+        onClose={() => updateSelectedIssue(null)}
+        onNotify={setNotice}
       />
     </div>
   );

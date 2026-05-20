@@ -56,6 +56,35 @@ const buildHeaders = (extraHeaders?: HeadersInit) => {
   };
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+const readErrorMessage = async (response: Response, fallback: string) => {
+  try {
+    const data = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+    if (Array.isArray(data.message)) return data.message.join(' ');
+    return data.message ?? data.error ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const ensureOk = async (response: Response, fallback: string) => {
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response, fallback), response.status);
+  }
+};
+
 export const login = async (payload: {
   email: string;
   password: string;
@@ -66,9 +95,7 @@ export const login = async (payload: {
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to log in.');
-  }
+  await ensureOk(response, 'Failed to log in.');
 
   return response.json();
 };
@@ -84,9 +111,18 @@ export const signup = async (payload: {
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to sign up.');
-  }
+  await ensureOk(response, 'Failed to sign up.');
+
+  return response.json();
+};
+
+export const fetchCurrentUser = async (): Promise<AuthResponse['user']> => {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    cache: 'no-store',
+    headers: buildHeaders(),
+  });
+
+  await ensureOk(response, 'Failed to load current user.');
 
   return response.json();
 };
@@ -97,9 +133,7 @@ export const fetchIssues = async (query: IssueQuery): Promise<IssueListResponse>
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load issues.');
-  }
+  await ensureOk(response, 'Failed to load issues.');
 
   return response.json();
 };
@@ -110,9 +144,7 @@ export const fetchIssue = async (id: number): Promise<Issue> => {
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load issue.');
-  }
+  await ensureOk(response, 'Failed to load issue.');
 
   return response.json();
 };
@@ -123,9 +155,7 @@ export const fetchSummary = async (): Promise<IssueSummary> => {
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load summary.');
-  }
+  await ensureOk(response, 'Failed to load summary.');
 
   return response.json();
 };
@@ -137,9 +167,7 @@ export const createIssue = async (payload: IssueInput) => {
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to create issue.');
-  }
+  await ensureOk(response, 'Failed to create issue.');
 
   return response.json();
 };
@@ -151,9 +179,7 @@ export const updateIssue = async (id: number, payload: IssueUpdateInput) => {
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to update issue.');
-  }
+  await ensureOk(response, 'Failed to update issue.');
 
   return response.json();
 };
@@ -164,9 +190,7 @@ export const deleteIssue = async (id: number) => {
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to delete issue.');
-  }
+  await ensureOk(response, 'Failed to delete issue.');
 };
 
 export const fetchUsers = async (): Promise<IssueUser[]> => {
@@ -175,9 +199,7 @@ export const fetchUsers = async (): Promise<IssueUser[]> => {
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load users.');
-  }
+  await ensureOk(response, 'Failed to load users.');
 
   return response.json();
 };
@@ -188,9 +210,7 @@ export const fetchComments = async (issueId: number): Promise<Comment[]> => {
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load comments.');
-  }
+  await ensureOk(response, 'Failed to load comments.');
 
   return response.json();
 };
@@ -202,9 +222,7 @@ export const createComment = async (issueId: number, content: string) => {
     body: JSON.stringify({ content }),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to add comment.');
-  }
+  await ensureOk(response, 'Failed to add comment.');
 
   return response.json();
 };
@@ -223,9 +241,7 @@ export const updateComment = async (
     },
   );
 
-  if (!response.ok) {
-    throw new Error('Failed to update comment.');
-  }
+  await ensureOk(response, 'Failed to update comment.');
 
   return response.json();
 };
@@ -239,9 +255,7 @@ export const deleteComment = async (issueId: number, commentId: number) => {
     },
   );
 
-  if (!response.ok) {
-    throw new Error('Failed to delete comment.');
-  }
+  await ensureOk(response, 'Failed to delete comment.');
 };
 
 export const fetchAttachments = async (issueId: number): Promise<Attachment[]> => {
@@ -250,9 +264,7 @@ export const fetchAttachments = async (issueId: number): Promise<Attachment[]> =
     headers: buildHeaders(),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to load attachments.');
-  }
+  await ensureOk(response, 'Failed to load attachments.');
 
   return response.json();
 };
@@ -267,14 +279,46 @@ export const uploadAttachment = async (issueId: number, file: File) => {
     body: formData,
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to upload attachment.');
-  }
+  await ensureOk(response, 'Failed to upload attachment.');
 
   return response.json();
 };
 
-export const attachmentDownloadUrl = (issueId: number, attachmentId: number) =>
-  `${API_BASE_URL}/issues/${issueId}/attachments/${attachmentId}/download`;
+export const downloadAttachment = async (
+  issueId: number,
+  attachmentId: number,
+  fileName: string,
+) => {
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${issueId}/attachments/${attachmentId}/download`,
+    {
+      headers: buildHeaders(),
+    },
+  );
+
+  await ensureOk(response, 'Failed to download attachment.');
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const deleteAttachment = async (issueId: number, attachmentId: number) => {
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${issueId}/attachments/${attachmentId}`,
+    {
+      method: 'DELETE',
+      headers: buildHeaders(),
+    },
+  );
+
+  await ensureOk(response, 'Failed to delete attachment.');
+};
 
 export const apiBaseUrl = API_BASE_URL;

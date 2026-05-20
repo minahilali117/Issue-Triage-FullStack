@@ -5,9 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import {
-  attachmentDownloadUrl,
+  ApiError,
   createComment,
+  deleteAttachment,
   deleteComment,
+  downloadAttachment,
   fetchAttachments,
   fetchComments,
   fetchIssue,
@@ -21,7 +23,19 @@ import LoadingState from './loading-state';
 interface IssueDetailsModalProps {
   issueId: number | null;
   onClose: () => void;
+  onNotify: (message: string) => void;
 }
+
+const allowedAttachmentTypes = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'application/zip',
+]);
+const maxAttachmentSize = 10 * 1024 * 1024;
+const allowedAttachmentLabel = 'PNG, JPG, WebP, PDF, TXT, or ZIP up to 10 MB';
 
 const formatActor = (actor?: { name: string | null; email: string } | null) =>
   actor?.name ?? actor?.email ?? 'Unknown user';
@@ -33,7 +47,14 @@ const formatActivity = (type: string, oldValue: string | null, newValue: string 
   return type.replaceAll('_', ' ').toLowerCase();
 };
 
-export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModalProps) {
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof ApiError || error instanceof Error ? error.message : fallback;
+
+export default function IssueDetailsModal({
+  issueId,
+  onClose,
+  onNotify,
+}: IssueDetailsModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState('');
@@ -66,24 +87,49 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
     mutationFn: (content: string) => createComment(issueId as number, content),
     onSuccess: () => {
       setNewComment('');
+      onNotify('Comment added.');
       invalidateDetails();
     },
+    onError: (error) => onNotify(getErrorMessage(error, 'Could not add comment.')),
   });
   const editCommentMutation = useMutation({
     mutationFn: (payload: { id: number; content: string }) =>
       updateComment(issueId as number, payload.id, payload.content),
     onSuccess: () => {
       setEditing(null);
+      onNotify('Comment updated.');
       invalidateDetails();
     },
+    onError: (error) =>
+      onNotify(getErrorMessage(error, 'Could not update comment.')),
   });
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteComment(issueId as number, commentId),
-    onSuccess: invalidateDetails,
+    onSuccess: () => {
+      onNotify('Comment deleted.');
+      invalidateDetails();
+    },
+    onError: (error) =>
+      onNotify(getErrorMessage(error, 'Could not delete comment.')),
   });
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadAttachment(issueId as number, file),
-    onSuccess: invalidateDetails,
+    onSuccess: () => {
+      onNotify('Attachment uploaded.');
+      invalidateDetails();
+    },
+    onError: (error) =>
+      onNotify(getErrorMessage(error, `Could not upload attachment. Use ${allowedAttachmentLabel}.`)),
+  });
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: number) =>
+      deleteAttachment(issueId as number, attachmentId),
+    onSuccess: () => {
+      onNotify('Attachment deleted.');
+      invalidateDetails();
+    },
+    onError: (error) =>
+      onNotify(getErrorMessage(error, 'Could not delete attachment.')),
   });
 
   if (!issueId) return null;
@@ -122,12 +168,15 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
                     className="mt-3 grid gap-2"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      if (newComment.trim()) void addCommentMutation.mutateAsync(newComment.trim());
+                      if (newComment.trim()) {
+                        addCommentMutation.mutate(newComment.trim());
+                      }
                     }}
                   >
                     <textarea
                       value={newComment}
                       onChange={(event) => setNewComment(event.target.value)}
+                      maxLength={2000}
                       className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                       placeholder="Add a comment"
                     />
@@ -137,7 +186,8 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
 
                 <div className="mt-4 grid gap-3">
                   {comments.map((comment) => {
-                    const canManage =
+                    const canEdit = comment.authorId === user?.id;
+                    const canDelete =
                       user?.role === 'ADMIN' || comment.authorId === user?.id;
                     const isEditing = editing?.id === comment.id;
 
@@ -148,14 +198,18 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
                             <p className="text-sm font-semibold text-slate-900">{formatActor(comment.author)}</p>
                             <p className="text-xs text-slate-500">{new Date(comment.createdAt).toLocaleString()}</p>
                           </div>
-                          {canManage ? (
+                          {canEdit || canDelete ? (
                             <div className="flex gap-2">
-                              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(comment)}>
-                                Edit
-                              </Button>
-                              <Button type="button" variant="outline" size="sm" onClick={() => void deleteCommentMutation.mutateAsync(comment.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit ? (
+                                <Button type="button" variant="outline" size="sm" onClick={() => setEditing(comment)}>
+                                  Edit
+                                </Button>
+                              ) : null}
+                              {canDelete ? (
+                                <Button type="button" variant="outline" size="sm" onClick={() => deleteCommentMutation.mutate(comment.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -165,7 +219,7 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
                             onSubmit={(event) => {
                               event.preventDefault();
                               if (editing?.content.trim()) {
-                                void editCommentMutation.mutateAsync({
+                                editCommentMutation.mutate({
                                   id: comment.id,
                                   content: editing.content.trim(),
                                 });
@@ -175,6 +229,7 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
                             <textarea
                               value={editing.content}
                               onChange={(event) => setEditing({ ...editing, content: event.target.value })}
+                              maxLength={2000}
                               className="min-h-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             />
                             <div className="flex gap-2">
@@ -196,26 +251,58 @@ export default function IssueDetailsModal({ issueId, onClose }: IssueDetailsModa
               <div className="rounded-lg border border-black/10 p-4">
                 <h4 className="font-semibold text-slate-900">Attachments</h4>
                 {canUpload ? (
-                  <Input
-                    type="file"
-                    className="mt-3"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void uploadMutation.mutateAsync(file);
-                      event.currentTarget.value = '';
-                    }}
-                  />
+                  <div className="mt-3 grid gap-2">
+                    <Input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.zip,image/png,image/jpeg,image/webp,application/pdf,text/plain,application/zip"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          if (!allowedAttachmentTypes.has(file.type)) {
+                            onNotify(`Unsupported file type. Please upload ${allowedAttachmentLabel}.`);
+                          } else if (file.size > maxAttachmentSize) {
+                            onNotify('File is too large. Please upload a file up to 10 MB.');
+                          } else {
+                            uploadMutation.mutate(file);
+                          }
+                        }
+                        event.currentTarget.value = '';
+                      }}
+                    />
+                    <p className="text-xs text-slate-500">{allowedAttachmentLabel}</p>
+                  </div>
                 ) : null}
                 <div className="mt-3 grid gap-2">
                   {attachments.map((attachment) => (
-                    <a
+                    <div
                       key={attachment.id}
-                      href={attachmentDownloadUrl(issueId, attachment.id)}
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
                     >
-                      <Paperclip className="h-4 w-4" />
-                      {attachment.fileName}
-                    </a>
+                      <button
+                        type="button"
+                        className="flex min-w-0 items-center gap-2 text-left hover:text-slate-950"
+                        onClick={() => {
+                          downloadAttachment(issueId, attachment.id, attachment.fileName)
+                            .then(() => onNotify('Attachment downloaded.'))
+                            .catch((error: unknown) =>
+                              onNotify(getErrorMessage(error, 'Could not download attachment.')),
+                            );
+                        }}
+                      >
+                        <Paperclip className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{attachment.fileName}</span>
+                      </button>
+                      {user?.role === 'ADMIN' || attachment.uploadedBy?.id === user?.id ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
               </div>

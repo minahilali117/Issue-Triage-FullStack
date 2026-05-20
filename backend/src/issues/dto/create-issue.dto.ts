@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -14,11 +15,13 @@ export class CreateIssueDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
+  @MaxLength(200)
   title!: string;
 
   @IsString()
   @IsNotEmpty()
   @MinLength(10)
+  @MaxLength(5000)
   description!: string;
 
   @IsEnum(IssueStatus)
@@ -29,6 +32,7 @@ export class CreateIssueDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   category!: string;
 
   @Transform(({ value }: TransformFnParams) => {

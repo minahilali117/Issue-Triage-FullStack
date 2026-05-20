@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { IssuePriority, IssueStatus } from '../issues.types';
@@ -14,6 +15,7 @@ import type { IssueSortBy, SortOrder } from '../issues.types';
 export class ListIssuesDto {
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   search?: string;
 
   @IsEnum(IssueStatus)
@@ -26,6 +28,7 @@ export class ListIssuesDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
   category?: string;
 
   @Transform(({ value }: TransformFnParams) => {

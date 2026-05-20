@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -88,5 +89,15 @@ export class AttachmentsController {
       attachmentId,
     );
     return response.download(attachment.filePath, attachment.fileName);
+  }
+
+  @Delete(':attachmentId')
+  @Roles(Role.ADMIN, Role.DEVELOPER)
+  remove(
+    @Param('issueId', ParseIntPipe) issueId: number,
+    @Param('attachmentId', ParseIntPipe) attachmentId: number,
+    @CurrentUser() user: { userId: number; role: Role },
+  ) {
+    return this.attachmentsService.remove(issueId, attachmentId, user);
   }
 }
