@@ -1,4 +1,13 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Transform, type TransformFnParams } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { IssuePriority, IssueStatus } from '../issues.types';
 
 export class CreateIssueDto {
@@ -22,7 +31,18 @@ export class CreateIssueDto {
   @IsNotEmpty()
   category!: string;
 
-  @IsString()
+  @Transform(({ value }: TransformFnParams) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null || value === '') {
+      return null;
+    }
+    const parsed = Number(value);
+    return parsed;
+  })
+  @IsInt()
+  @Min(1)
   @IsOptional()
-  assignee?: string;
+  assigneeId?: number | null;
 }

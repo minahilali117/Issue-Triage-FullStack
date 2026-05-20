@@ -15,6 +15,49 @@ export enum IssuePriority {
 export type IssueSortBy = 'createdAt' | 'updatedAt' | 'priority';
 export type SortOrder = 'asc' | 'desc';
 
+export type UserRole = 'ADMIN' | 'DEVELOPER' | 'VIEWER';
+
+export interface IssueUser {
+  id: number;
+  name: string | null;
+  email: string;
+  role: UserRole;
+}
+
+export interface Comment {
+  id: number;
+  content: string;
+  issueId: number;
+  authorId: number | null;
+  author: IssueUser | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  type:
+    | 'ISSUE_CREATED'
+    | 'STATUS_CHANGED'
+    | 'PRIORITY_CHANGED'
+    | 'ASSIGNEE_CHANGED'
+    | 'COMMENT_ADDED'
+    | 'COMMENT_DELETED';
+  message: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  user: IssueUser | null;
+  createdAt: string;
+}
+
+export interface Attachment {
+  id: number;
+  fileName: string;
+  filePath: string;
+  uploadedBy: IssueUser | null;
+  createdAt: string;
+}
+
 export interface Issue {
   id: number;
   title: string;
@@ -22,7 +65,13 @@ export interface Issue {
   status: IssueStatus;
   priority: IssuePriority;
   category: string;
-  assignee?: string | null;
+  assigneeId: number | null;
+  assignee: IssueUser | null;
+  createdById: number;
+  createdBy: IssueUser;
+  comments?: Comment[];
+  activityLog?: ActivityLog[];
+  attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +82,7 @@ export interface IssueInput {
   status: IssueStatus;
   priority: IssuePriority;
   category: string;
-  assignee?: string | null;
+  assigneeId?: number | null;
 }
 
 export type IssueUpdateInput = Partial<IssueInput>;
@@ -62,7 +111,9 @@ export interface IssueQuery {
   status?: IssueStatus;
   priority?: IssuePriority;
   category?: string;
-  assignee?: string;
+  assigneeId?: number | null;
+  my?: boolean;
+  unassigned?: boolean;
   page?: number;
   limit?: number;
   sortBy?: IssueSortBy;

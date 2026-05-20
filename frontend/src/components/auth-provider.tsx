@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import type { AuthResponse, AuthUser } from '@/types/auth';
 
 const AUTH_STORAGE_KEY = 'triage_dashboard_auth';
@@ -35,41 +35,30 @@ const readStoredSession = (): AuthResponse | null => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    const session = readStoredSession();
-    if (session) {
-      setUser(session.user);
-      setAccessToken(session.accessToken);
-    }
-    setIsReady(true);
-  }, []);
+  const [session, setSession] = useState<AuthResponse | null>(() =>
+    readStoredSession(),
+  );
 
   const signIn = (session: AuthResponse) => {
-    setUser(session.user);
-    setAccessToken(session.accessToken);
+    setSession(session);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   };
 
   const signOut = () => {
-    setUser(null);
-    setAccessToken(null);
+    setSession(null);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
-      accessToken,
-      isReady,
-      isAuthenticated: Boolean(user && accessToken),
+      user: session?.user ?? null,
+      accessToken: session?.accessToken ?? null,
+      isReady: true,
+      isAuthenticated: Boolean(session?.user && session?.accessToken),
       signIn,
       signOut,
     }),
-    [user, accessToken, isReady],
+    [session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

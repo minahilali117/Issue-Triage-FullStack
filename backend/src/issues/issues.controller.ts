@@ -28,13 +28,19 @@ export class IssuesController {
 
   @Post()
   @Roles(Role.ADMIN, Role.DEVELOPER)
-  create(@Body() dto: CreateIssueDto, @CurrentUser() user: { userId: number; role: Role; email: string }) {
+  create(
+    @Body() dto: CreateIssueDto,
+    @CurrentUser() user: { userId: number; role: Role; email: string },
+  ) {
     return this.issuesService.create(dto, user);
   }
 
   @Get()
-  list(@Query() query: ListIssuesDto) {
-    return this.issuesService.list(query);
+  list(
+    @Query() query: ListIssuesDto,
+    @CurrentUser() user: { userId: number; role: Role; email: string },
+  ) {
+    return this.issuesService.list(query, user);
   }
 
   @Get('summary')

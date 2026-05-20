@@ -8,6 +8,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/triage_dashboard?schema=public
     depends_on:
       - postgres
+    volumes:
+      - backend-uploads:/app/uploads
 
   frontend:
     build:
@@ -33,3 +35,4 @@ services:
 
 volumes:
   postgres-data:
+  backend-uploads:

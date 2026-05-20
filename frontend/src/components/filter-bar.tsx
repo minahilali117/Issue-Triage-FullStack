@@ -33,16 +33,19 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
   const [status, setStatus] = useState<IssueStatus | undefined>(initial.status);
   const [priority, setPriority] = useState<IssuePriority | undefined>(initial.priority);
   const [category, setCategory] = useState<string | undefined>(initial.category);
-  const [assignee, setAssignee] = useState<string | undefined>(initial.assignee);
+  const [my, setMy] = useState<boolean>(Boolean(initial.my));
+  const [unassigned, setUnassigned] = useState<boolean>(Boolean(initial.unassigned));
   const [sortBy, setSortBy] = useState<IssueSortBy>(initial.sortBy ?? 'createdAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>(initial.sortOrder ?? 'desc');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearch(initial.search);
     setStatus(initial.status);
     setPriority(initial.priority);
     setCategory(initial.category);
-    setAssignee(initial.assignee);
+    setMy(Boolean(initial.my));
+    setUnassigned(Boolean(initial.unassigned));
     setSortBy(initial.sortBy ?? 'createdAt');
     setSortOrder(initial.sortOrder ?? 'desc');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,7 +57,8 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
       status,
       priority,
       category: category?.trim() || undefined,
-      assignee: assignee?.trim() || undefined,
+      my: my || undefined,
+      unassigned: unassigned || undefined,
       page: 1,
       limit: initial.limit ?? 10,
       sortBy,
@@ -67,7 +71,8 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
     setStatus(undefined);
     setPriority(undefined);
     setCategory(undefined);
-    setAssignee(undefined);
+    setMy(false);
+    setUnassigned(false);
     setSortBy(initial.sortBy ?? 'createdAt');
     setSortOrder(initial.sortOrder ?? 'desc');
     onReset();
@@ -120,8 +125,17 @@ export default function FilterBar({ initial, onApply, onReset }: FilterBarProps)
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Assignee</label>
-        <Input value={assignee ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignee(e.target.value)} placeholder="Minahil" />
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Ownership</label>
+        <div className="flex h-10 items-center gap-3 rounded-lg border border-black/10 px-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={my} onChange={(event) => setMy(event.target.checked)} />
+            My issues
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={unassigned} onChange={(event) => setUnassigned(event.target.checked)} />
+            Unassigned
+          </label>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">

@@ -35,10 +35,11 @@ const Button = React.forwardRef<
     asChild?: boolean
   }
 >(({ className, variant, size, asChild = false, ...props }, ref) => {
-  const Comp: any = asChild ? Slot : "button"
+  const Comp = asChild ? Slot.Root : "button"
   return (
     <Comp
       ref={ref}
+      suppressHydrationWarning
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />

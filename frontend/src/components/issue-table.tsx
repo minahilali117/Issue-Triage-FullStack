@@ -1,14 +1,26 @@
+import type { AuthUser } from '@/types/auth';
 import { Issue } from '@/types/issue';
 import PriorityBadge from './priority-badge';
 import StatusBadge from './status-badge';
 
 interface IssueTableProps {
   issues: Issue[];
+  currentUser: AuthUser | null;
   onEdit: (issue: Issue) => void;
   onDelete: (issue: Issue) => void;
+  onView: (issue: Issue) => void;
 }
 
-export default function IssueTable({ issues, onEdit, onDelete }: IssueTableProps) {
+export default function IssueTable({
+  issues,
+  currentUser,
+  onEdit,
+  onDelete,
+  onView,
+}: IssueTableProps) {
+  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'DEVELOPER';
+  const canDelete = currentUser?.role === 'ADMIN';
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
       <table className="min-w-[900px] w-full text-left text-sm">
@@ -20,6 +32,7 @@ export default function IssueTable({ issues, onEdit, onDelete }: IssueTableProps
             <th className="px-4 py-3">Category</th>
             <th className="px-4 py-3">Assignee</th>
             <th className="px-4 py-3">Updated</th>
+            <th className="px-4 py-3">Creator</th>
             <th className="px-4 py-3">Actions</th>
           </tr>
         </thead>
@@ -40,7 +53,10 @@ export default function IssueTable({ issues, onEdit, onDelete }: IssueTableProps
               </td>
               <td className="px-4 py-4 text-slate-700">{issue.category}</td>
               <td className="px-4 py-4 text-slate-700">
-                {issue.assignee ?? 'Unassigned'}
+                {issue.assignee?.name ?? issue.assignee?.email ?? 'Unassigned'}
+              </td>
+              <td className="px-4 py-4 text-slate-700">
+                {issue.createdBy?.name ?? issue.createdBy?.email}
               </td>
               <td className="px-4 py-4 text-slate-500">
                 {new Date(issue.updatedAt).toLocaleDateString()}
@@ -49,18 +65,29 @@ export default function IssueTable({ issues, onEdit, onDelete }: IssueTableProps
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => onEdit(issue)}
+                    onClick={() => onView(issue)}
                     className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
                   >
-                    Edit
+                    Details
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(issue)}
-                    className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:border-rose-300"
-                  >
-                    Delete
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(issue)}
+                      className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(issue)}
+                      className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:border-rose-300"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               </td>
             </tr>

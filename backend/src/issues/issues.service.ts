@@ -4,8 +4,10 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { ActivityType, Prisma, Role } from '@prisma/client';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { PrismaService } from '../prisma.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { ListIssuesDto } from './dto/list-issues.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
@@ -20,14 +22,16 @@ interface IssueActor {
 
 @Injectable()
 export class IssuesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLogService: ActivityLogService,
+    private readonly realtimeGateway: RealtimeGateway,
+  ) {}
 
   async create(dto: CreateIssueDto, actor: IssueActor) {
     if (!actor?.userId) {
       throw new UnauthorizedException('Authentication required');
     }
-
-    const assigneeId = await this.resolveAssigneeId(dto.assignee);
 
     const issue = await this.prisma.issue.create({
       data: {
@@ -37,16 +41,26 @@ export class IssuesService {
         priority: dto.priority,
         category: dto.category,
         createdById: actor.userId,
-        ...(assigneeId !== undefined ? { assigneeId } : {}),
+        ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
       },
       include: this.issueInclude,
     });
 
-    return this.shapeIssue(issue);
+    await this.activityLogService.log({
+      issueId: issue.id,
+      userId: actor.userId,
+      type: ActivityType.ISSUE_CREATED,
+      message: 'Issue created',
+    });
+
+    const shapedIssue = this.shapeIssue(issue);
+    this.realtimeGateway.emitIssueUpdated(shapedIssue);
+    return shapedIssue;
   }
 
-  async list(query: ListIssuesDto) {
+  async list(query: ListIssuesDto, actor: IssueActor) {
     const where: Prisma.IssueWhereInput = {};
+    const and: Prisma.IssueWhereInput[] = [];
 
     if (query.status) {
       where.status = query.status;
@@ -60,31 +74,35 @@ export class IssuesService {
       where.category = query.category;
     }
 
-    if (query.assignee) {
-      const maybeId = Number(query.assignee);
-      if (!Number.isNaN(maybeId)) {
-        where.assigneeId = maybeId;
-      } else {
-        const users = await this.prisma.user.findMany({
-          where: {
-            OR: [
-              { name: { contains: query.assignee, mode: 'insensitive' } },
-              { email: { contains: query.assignee, mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true },
-        });
+    if (query.assigneeId !== undefined) {
+      and.push({ assigneeId: query.assigneeId });
+    }
 
-        where.assigneeId =
-          users.length > 0 ? { in: users.map((user) => user.id) } : -1;
-      }
+    const assignmentFilters: Prisma.IssueWhereInput[] = [];
+    if (query.my) {
+      assignmentFilters.push({ assigneeId: actor.userId });
+    }
+    if (query.unassigned) {
+      assignmentFilters.push({ assigneeId: null });
+    }
+    if (assignmentFilters.length === 1) {
+      and.push(assignmentFilters[0]);
+    }
+    if (assignmentFilters.length > 1) {
+      and.push({ OR: assignmentFilters });
     }
 
     if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
-      ];
+      and.push({
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const page = query.page ?? 1;
@@ -97,7 +115,9 @@ export class IssuesService {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { [sortBy]: sortOrder } as Prisma.IssueOrderByWithRelationInput,
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
         include: this.issueInclude,
       }),
       this.prisma.issue.count({ where }),
@@ -121,11 +141,17 @@ export class IssuesService {
         ...this.issueInclude,
         comments: {
           orderBy: { createdAt: 'asc' },
-          include: { author: { select: { id: true, name: true, email: true, role: true } } },
+          include: {
+            author: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
         },
         activityLog: {
           orderBy: { createdAt: 'asc' },
-          include: { user: { select: { id: true, name: true, email: true, role: true } } },
+          include: {
+            user: { select: { id: true, name: true, email: true, role: true } },
+          },
         },
       },
     });
@@ -151,7 +177,9 @@ export class IssuesService {
   async update(id: number, dto: UpdateIssueDto, actor: IssueActor) {
     const current = await this.prisma.issue.findUnique({
       where: { id },
-      include: { assignee: { select: { id: true, email: true, name: true } } },
+      include: {
+        assignee: { select: { id: true, email: true, name: true } },
+      },
     });
 
     if (!current) {
@@ -168,8 +196,15 @@ export class IssuesService {
       if (dto.priority !== undefined) data.priority = dto.priority;
       if (dto.category !== undefined) data.category = dto.category;
     } else {
-      if (dto.title !== undefined || dto.description !== undefined || dto.priority !== undefined || dto.category !== undefined) {
-        throw new ForbiddenException('Developers can only update issue status or assignment');
+      if (
+        dto.title !== undefined ||
+        dto.description !== undefined ||
+        dto.priority !== undefined ||
+        dto.category !== undefined
+      ) {
+        throw new ForbiddenException(
+          'Developers can only update issue status or assignment',
+        );
       }
 
       if (dto.status !== undefined) {
@@ -177,22 +212,28 @@ export class IssuesService {
       }
     }
 
-    if (dto.assignee !== undefined) {
+    if (dto.assigneeId !== undefined) {
       if (isAdmin) {
-        const assigneeId = await this.resolveAssigneeId(dto.assignee);
-        data.assignee = assigneeId === undefined ? undefined : assigneeId === null ? { disconnect: true } : { connect: { id: assigneeId } };
-      } else {
-        const normalizedAssignee = dto.assignee.trim().toLowerCase();
-        const actorMatchesSelf =
-          normalizedAssignee === actor.email.toLowerCase() ||
-          normalizedAssignee === String(actor.userId) ||
-          (actor.name ? normalizedAssignee === actor.name.toLowerCase() : false);
-
-        if (!actorMatchesSelf) {
-          throw new ForbiddenException('Developers can only assign issues to themselves');
+        if (dto.assigneeId === null) {
+          data.assignee = { disconnect: true };
+        } else {
+          data.assignee = { connect: { id: dto.assigneeId } };
         }
-
-        data.assignee = { connect: { id: actor.userId } };
+      } else {
+        if (dto.assigneeId === null) {
+          if (current.assigneeId !== actor.userId) {
+            throw new ForbiddenException(
+              'Developers can only unassign themselves',
+            );
+          }
+          data.assignee = { disconnect: true };
+        } else if (dto.assigneeId !== actor.userId) {
+          throw new ForbiddenException(
+            'Developers can only assign issues to themselves',
+          );
+        } else {
+          data.assignee = { connect: { id: actor.userId } };
+        }
       }
     }
 
@@ -202,7 +243,17 @@ export class IssuesService {
       include: this.issueInclude,
     });
 
-    return this.shapeIssue(issue);
+    await this.logIssueChanges(current, issue, actor.userId, data, issue.id);
+
+    const shapedIssue = this.shapeIssue(issue);
+    this.realtimeGateway.emitIssueUpdated(shapedIssue);
+    if (
+      data.assignee !== undefined &&
+      current.assigneeId !== issue.assigneeId
+    ) {
+      this.realtimeGateway.emitIssueAssigned(shapedIssue);
+    }
+    return shapedIssue;
   }
 
   async remove(id: number) {
@@ -215,46 +266,88 @@ export class IssuesService {
     createdBy: { select: { id: true, name: true, email: true, role: true } },
   } satisfies Prisma.IssueInclude;
 
-  private async resolveAssigneeId(value?: string | null) {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    if (value === null) {
-      return null;
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const maybeId = Number(trimmed);
-    if (!Number.isNaN(maybeId)) {
-      return maybeId;
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { name: { equals: trimmed, mode: 'insensitive' } },
-          { email: { equals: trimmed, mode: 'insensitive' } },
-        ],
-      },
-      select: { id: true },
-    });
-
-    return user?.id ?? null;
-  }
-
-  private shapeIssue<T extends {
-    assignee: { id: number; name: string | null; email: string; role: Role } | null;
-    createdBy: { id: number; name: string | null; email: string; role: Role };
-  } & Record<string, unknown>>(issue: T) {
+  private shapeIssue<
+    T extends {
+      assignee: {
+        id: number;
+        name: string | null;
+        email: string;
+        role: Role;
+      } | null;
+      createdBy: { id: number; name: string | null; email: string; role: Role };
+    } & Record<string, unknown>,
+  >(issue: T) {
     return {
       ...issue,
-      assignee: issue.assignee ? issue.assignee.name ?? issue.assignee.email : null,
+      assignee: issue.assignee,
       createdBy: issue.createdBy,
     };
+  }
+
+  private async logIssueChanges(
+    before: {
+      status: string;
+      priority: string;
+      assigneeId: number | null;
+      assignee: { id: number; name: string | null; email: string } | null;
+    },
+    after: {
+      status: string;
+      priority: string;
+      assigneeId: number | null;
+      assignee: { id: number; name: string | null; email: string } | null;
+    },
+    actorId: number,
+    data: Prisma.IssueUpdateInput,
+    issueId: number,
+  ) {
+    const logs: Array<Promise<unknown>> = [];
+
+    if (data.status !== undefined && before.status !== after.status) {
+      logs.push(
+        this.activityLogService.log({
+          issueId,
+          userId: actorId,
+          type: ActivityType.STATUS_CHANGED,
+          oldValue: before.status,
+          newValue: after.status,
+        }),
+      );
+    }
+
+    if (data.priority !== undefined && before.priority !== after.priority) {
+      logs.push(
+        this.activityLogService.log({
+          issueId,
+          userId: actorId,
+          type: ActivityType.PRIORITY_CHANGED,
+          oldValue: before.priority,
+          newValue: after.priority,
+        }),
+      );
+    }
+
+    if (data.assignee !== undefined && before.assigneeId !== after.assigneeId) {
+      const beforeLabel = before.assignee
+        ? (before.assignee.name ?? before.assignee.email)
+        : 'Unassigned';
+      const afterLabel = after.assignee
+        ? (after.assignee.name ?? after.assignee.email)
+        : 'Unassigned';
+
+      logs.push(
+        this.activityLogService.log({
+          issueId,
+          userId: actorId,
+          type: ActivityType.ASSIGNEE_CHANGED,
+          oldValue: beforeLabel,
+          newValue: afterLabel,
+        }),
+      );
+    }
+
+    if (logs.length > 0) {
+      await Promise.all(logs);
+    }
   }
 }

@@ -1,27 +1,44 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   Issue,
   IssueInput,
   IssuePriority,
   IssueStatus,
+  IssueUser,
 } from '@/types/issue';
+import { Button, Input } from './ui';
 
 interface IssueFormModalProps {
   isOpen: boolean;
   issue: Issue | null;
   onClose: () => void;
   onSave: (payload: IssueInput, issueId?: number) => Promise<void>;
+  users: IssueUser[];
 }
 
-const DEFAULT_FORM: IssueInput = {
+const issueSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().min(10),
+  status: z.enum(IssueStatus),
+  priority: z.enum(IssuePriority),
+  category: z.string().min(1),
+  assigneeId: z.number().int().positive().nullable().optional(),
+});
+
+type IssueFormValues = z.infer<typeof issueSchema>;
+
+const DEFAULT_FORM: IssueFormValues = {
   title: '',
   description: '',
   status: IssueStatus.OPEN,
   priority: IssuePriority.MEDIUM,
   category: '',
-  assignee: '',
+  assigneeId: null,
 };
 
 export default function IssueFormModal({
@@ -29,47 +46,53 @@ export default function IssueFormModal({
   issue,
   onClose,
   onSave,
+  users,
 }: IssueFormModalProps) {
-  const [form, setForm] = useState<IssueInput>(DEFAULT_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const isEditing = useMemo(() => Boolean(issue), [issue]);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<IssueFormValues>({
+    resolver: zodResolver(issueSchema),
+    defaultValues: DEFAULT_FORM,
+  });
+  const status = useWatch({ control, name: 'status' });
+  const priority = useWatch({ control, name: 'priority' });
+  const assigneeId = useWatch({ control, name: 'assigneeId' });
 
   useEffect(() => {
     if (issue) {
-      setForm({
+      reset({
         title: issue.title,
         description: issue.description,
         status: issue.status,
         priority: issue.priority,
         category: issue.category,
-        assignee: issue.assignee ?? '',
+        assigneeId: issue.assigneeId,
       });
       return;
     }
 
-    setForm(DEFAULT_FORM);
-  }, [issue, isOpen]);
+    reset(DEFAULT_FORM);
+  }, [issue, isOpen, reset]);
 
   if (!isOpen) {
     return null;
   }
 
-  const handleChange = (
-    key: keyof IssueInput,
-    value: IssueInput[keyof IssueInput],
-  ) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitForm = async (form: IssueFormValues) => {
     setIsSaving(true);
 
     try {
       await onSave(
         {
           ...form,
-          assignee: form.assignee?.trim() || null,
+          assigneeId: form.assigneeId ?? null,
         },
         issue?.id,
       );
@@ -100,18 +123,16 @@ export default function IssueFormModal({
           </button>
         </div>
 
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+        <form className="mt-6 grid gap-4" onSubmit={handleSubmit(submitForm)}>
           <div className="grid gap-2">
             <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
               Title
             </label>
-            <input
-              value={form.title}
-              onChange={(event) => handleChange('title', event.target.value)}
-              required
-              minLength={3}
+            <Input
+              {...register('title')}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
             />
+            {errors.title ? <p className="text-xs text-rose-600">{errors.title.message}</p> : null}
           </div>
 
           <div className="grid gap-2">
@@ -119,13 +140,11 @@ export default function IssueFormModal({
               Description
             </label>
             <textarea
-              value={form.description}
-              onChange={(event) => handleChange('description', event.target.value)}
-              required
-              minLength={10}
+              {...register('description')}
               rows={4}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
             />
+            {errors.description ? <p className="text-xs text-rose-600">{errors.description.message}</p> : null}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -134,9 +153,9 @@ export default function IssueFormModal({
                 Status
               </label>
               <select
-                value={form.status}
+                value={status}
                 onChange={(event) =>
-                  handleChange('status', event.target.value as IssueStatus)
+                  setValue('status', event.target.value as IssueStatus)
                 }
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
               >
@@ -152,9 +171,9 @@ export default function IssueFormModal({
                 Priority
               </label>
               <select
-                value={form.priority}
+                value={priority}
                 onChange={(event) =>
-                  handleChange('priority', event.target.value as IssuePriority)
+                  setValue('priority', event.target.value as IssuePriority)
                 }
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
               >
@@ -172,40 +191,50 @@ export default function IssueFormModal({
               <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 Category
               </label>
-              <input
-                value={form.category}
-                onChange={(event) => handleChange('category', event.target.value)}
-                required
+              <Input
+                {...register('category')}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
               />
+              {errors.category ? <p className="text-xs text-rose-600">{errors.category.message}</p> : null}
             </div>
             <div className="grid gap-2">
               <label className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 Assignee
               </label>
-              <input
-                value={form.assignee ?? ''}
-                onChange={(event) => handleChange('assignee', event.target.value)}
+              <select
+                value={assigneeId ?? ''}
+                onChange={(event) =>
+                  setValue(
+                    'assigneeId',
+                    event.target.value ? Number(event.target.value) : null,
+                  )
+                }
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              />
+              >
+                <option value="">Unassigned</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name ?? user.email}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+              variant="outline"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSaving}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
             >
               {isSaving ? 'Saving...' : isEditing ? 'Update issue' : 'Create issue'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

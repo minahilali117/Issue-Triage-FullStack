@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -54,7 +58,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
@@ -77,7 +84,9 @@ export class AuthService {
     });
   }
 
-  private buildTokenPayload(user: Pick<User, 'id' | 'email' | 'role'>): JwtPayload {
+  private buildTokenPayload(
+    user: Pick<User, 'id' | 'email' | 'role'>,
+  ): JwtPayload {
     return {
       userId: user.id,
       email: user.email,
@@ -85,7 +94,12 @@ export class AuthService {
     };
   }
 
-  private async buildAuthResponse<T extends Pick<User, 'id' | 'email' | 'name' | 'role' | 'createdAt' | 'updatedAt'>>(user: T) {
+  private async buildAuthResponse<
+    T extends Pick<
+      User,
+      'id' | 'email' | 'name' | 'role' | 'createdAt' | 'updatedAt'
+    >,
+  >(user: T) {
     const payload = this.buildTokenPayload(user);
     const accessToken = await this.jwtService.signAsync(payload);
 

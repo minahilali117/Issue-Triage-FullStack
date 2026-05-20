@@ -1,5 +1,13 @@
-import { Transform } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, type TransformFnParams } from 'class-transformer';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { IssuePriority, IssueStatus } from '../issues.types';
 import type { IssueSortBy, SortOrder } from '../issues.types';
 
@@ -20,17 +28,44 @@ export class ListIssuesDto {
   @IsOptional()
   category?: string;
 
-  @IsString()
+  @Transform(({ value }: TransformFnParams) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null || value === '') {
+      return null;
+    }
+    const parsed = Number(value);
+    return parsed;
+  })
+  @IsInt()
+  @Min(1)
   @IsOptional()
-  assignee?: string;
+  assigneeId?: number | null;
 
-  @Transform(({ value }) => (value === undefined ? undefined : Number.parseInt(value, 10)))
+  @Transform(
+    ({ value }: TransformFnParams) => value === true || value === 'true',
+  )
+  @IsOptional()
+  my?: boolean;
+
+  @Transform(
+    ({ value }: TransformFnParams) => value === true || value === 'true',
+  )
+  @IsOptional()
+  unassigned?: boolean;
+
+  @Transform(({ value }: TransformFnParams) =>
+    value === undefined ? undefined : Number.parseInt(String(value), 10),
+  )
   @IsInt()
   @Min(1)
   @IsOptional()
   page?: number;
 
-  @Transform(({ value }) => (value === undefined ? undefined : Number.parseInt(value, 10)))
+  @Transform(({ value }: TransformFnParams) =>
+    value === undefined ? undefined : Number.parseInt(String(value), 10),
+  )
   @IsInt()
   @Min(1)
   @Max(100)

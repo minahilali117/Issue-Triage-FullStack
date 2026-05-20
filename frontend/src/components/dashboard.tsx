@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { io } from 'socket.io-client';
 import { useAuth } from '@/components/auth-provider';
 import {
+  apiBaseUrl,
   createIssue,
   deleteIssue,
   fetchIssues,
   fetchSummary,
+  fetchUsers,
   updateIssue,
 } from '@/lib/api';
 import {
   Issue,
   IssueInput,
-  IssueListMeta,
   IssueQuery,
-  IssueSummary,
   IssueStatus,
   IssuePriority,
   IssueSortBy,
@@ -26,6 +28,7 @@ import ErrorState from './error-state';
 import FilterBar from '@/components/filter-bar';
 import IssueFormModal from './issue-form-modal';
 import IssueTable from './issue-table';
+import IssueDetailsModal from './issue-details-modal';
 import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
 import { Button } from './ui';
@@ -42,55 +45,49 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
 
   const [query, setQuery] = useState<IssueQuery>(DEFAULT_QUERY);
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [meta, setMeta] = useState<IssueListMeta | null>(null);
-  const [summary, setSummary] = useState<IssueSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+
+  const issuesQuery = useQuery({
+    queryKey: ['issues', query],
+    queryFn: () => fetchIssues(query),
+  });
+  const summaryQuery = useQuery({
+    queryKey: ['issue-summary'],
+    queryFn: fetchSummary,
+  });
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  });
+
+  const refreshDashboard = () => {
+    void queryClient.invalidateQueries({ queryKey: ['issues'] });
+    void queryClient.invalidateQueries({ queryKey: ['issue-summary'] });
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const [issueData, summaryData] = await Promise.all([
-          fetchIssues(query),
-          fetchSummary(),
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setIssues(issueData.data);
-        setMeta(issueData.meta);
-        setSummary(summaryData);
-      } catch (err) {
-        if (!isMounted) {
-          return;
-        }
-        setError(err instanceof Error ? err.message : 'Something went wrong.');
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+    const socket = io(apiBaseUrl, { transports: ['websocket', 'polling'] });
+    const refresh = () => refreshDashboard();
+    socket.on('issue.updated', refresh);
+    socket.on('issue.assigned', refresh);
+    socket.on('comment.added', (payload: { issueId?: number }) => {
+      refresh();
+      if (payload.issueId) {
+        void queryClient.invalidateQueries({ queryKey: ['issue', payload.issueId] });
+        void queryClient.invalidateQueries({ queryKey: ['comments', payload.issueId] });
       }
-    };
-
-    void load();
+    });
 
     return () => {
-      isMounted = false;
+      socket.disconnect();
     };
-  }, [query, refreshToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
 
   // Sync URL -> state when the search params change (back/forward or direct link)
   useEffect(() => {
@@ -111,8 +108,11 @@ export default function Dashboard() {
     const category = sp.get('category');
     if (category) next.category = category;
 
-    const assignee = sp.get('assignee');
-    if (assignee) next.assignee = assignee;
+    const assigneeId = Number(sp.get('assigneeId'));
+    if (!Number.isNaN(assigneeId) && assigneeId > 0) next.assigneeId = assigneeId;
+
+    if (sp.get('my') === 'true') next.my = true;
+    if (sp.get('unassigned') === 'true') next.unassigned = true;
 
     const page = Number(sp.get('page'));
     if (!Number.isNaN(page) && page > 0) next.page = page;
@@ -126,6 +126,7 @@ export default function Dashboard() {
     const sortOrder = sp.get('sortOrder');
     if (sortOrder) next.sortOrder = sortOrder as SortOrder;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery((prev) => ({ ...prev, ...next }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams?.toString()]);
@@ -139,7 +140,9 @@ export default function Dashboard() {
     if (nextQuery.status) params.set('status', nextQuery.status);
     if (nextQuery.priority) params.set('priority', nextQuery.priority);
     if (nextQuery.category) params.set('category', nextQuery.category);
-    if (nextQuery.assignee) params.set('assignee', nextQuery.assignee);
+    if (nextQuery.assigneeId) params.set('assigneeId', String(nextQuery.assigneeId));
+    if (nextQuery.my) params.set('my', 'true');
+    if (nextQuery.unassigned) params.set('unassigned', 'true');
     if (nextQuery.page) params.set('page', String(nextQuery.page));
     if (nextQuery.limit) params.set('limit', String(nextQuery.limit));
     if (nextQuery.sortBy) params.set('sortBy', nextQuery.sortBy);
@@ -149,6 +152,16 @@ export default function Dashboard() {
     const url = qs ? `${pathname}?${qs}` : pathname;
     router.replace(url);
   };
+
+  const issues = issuesQuery.data?.data ?? [];
+  const meta = issuesQuery.data?.meta ?? null;
+  const isLoading = issuesQuery.isLoading || summaryQuery.isLoading;
+  const error =
+    issuesQuery.error instanceof Error
+      ? issuesQuery.error.message
+      : summaryQuery.error instanceof Error
+        ? summaryQuery.error.message
+        : null;
 
   const paginationLabel = useMemo(() => {
     if (!meta) {
@@ -161,16 +174,23 @@ export default function Dashboard() {
     return `Showing ${start}-${end} of ${meta.total}`;
   }, [meta]);
 
-  const handleSave = async (payload: IssueInput) => {
-    if (editingIssue) {
-      await updateIssue(editingIssue.id, payload);
-    } else {
-      await createIssue(payload);
-    }
+  const saveMutation = useMutation({
+    mutationFn: (payload: IssueInput) =>
+      editingIssue ? updateIssue(editingIssue.id, payload) : createIssue(payload),
+    onSuccess: () => {
+      setEditingIssue(null);
+      setIsFormOpen(false);
+      refreshDashboard();
+    },
+  });
 
-    setEditingIssue(null);
-    setIsFormOpen(false);
-    setRefreshToken((prev) => prev + 1);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteIssue(id),
+    onSuccess: refreshDashboard,
+  });
+
+  const handleSave = async (payload: IssueInput) => {
+    await saveMutation.mutateAsync(payload);
   };
 
   const handleDelete = async (issue: Issue) => {
@@ -182,9 +202,10 @@ export default function Dashboard() {
       return;
     }
 
-    await deleteIssue(issue.id);
-    setRefreshToken((prev) => prev + 1);
+    await deleteMutation.mutateAsync(issue.id);
   };
+
+  const canCreateIssues = user?.role === 'ADMIN' || user?.role === 'DEVELOPER';
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,18 +225,20 @@ export default function Dashboard() {
           <Button type="button" variant="outline" onClick={signOut}>
             Logout
           </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setEditingIssue(null);
-              setIsFormOpen(true);
-            }}
-          >
-            New issue
-          </Button>
+          {canCreateIssues ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingIssue(null);
+                setIsFormOpen(true);
+              }}
+            >
+              New issue
+            </Button>
+          ) : null}
         </div>
       </div>
-      <SummaryCards summary={summary} isLoading={isLoading} />
+      <SummaryCards summary={summaryQuery.data ?? null} isLoading={isLoading} />
       <FilterBar
         initial={query}
         onApply={updateQuery}
@@ -231,11 +254,13 @@ export default function Dashboard() {
       ) : (
         <IssueTable
           issues={issues}
+          currentUser={user}
           onEdit={(issue) => {
             setEditingIssue(issue);
             setIsFormOpen(true);
           }}
           onDelete={handleDelete}
+          onView={(issue) => setSelectedIssueId(issue.id)}
         />
       )}
 
@@ -280,6 +305,11 @@ export default function Dashboard() {
           setIsFormOpen(false);
         }}
         onSave={handleSave}
+        users={usersQuery.data ?? []}
+      />
+      <IssueDetailsModal
+        issueId={selectedIssueId}
+        onClose={() => setSelectedIssueId(null)}
       />
     </div>
   );
