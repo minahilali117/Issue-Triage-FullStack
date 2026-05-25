@@ -25,7 +25,7 @@ export class AuthController {
       accessToken,
       this.authService.getAuthCookieOptions(),
     );
-    return { user };
+    return { user, accessToken };
   }
 
   @Post('login')
@@ -41,7 +41,7 @@ export class AuthController {
       accessToken,
       this.authService.getAuthCookieOptions(),
     );
-    return { user };
+    return { user, accessToken };
   }
 
   @Post('logout')
