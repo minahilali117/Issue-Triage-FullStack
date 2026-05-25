@@ -77,11 +77,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_40%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] px-6 py-10">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-8 rounded-3xl border border-white/70 bg-white/85 p-8 shadow-[0_25px_80px_rgba(15,23,42,0.12)] backdrop-blur">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(248,180,135,0.16),transparent_34%),radial-gradient(circle_at_84%_14%,rgba(56,189,248,0.14),transparent_30%),linear-gradient(135deg,#f7f4ee_0%,#edf3f7_100%)] px-6 py-10">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-8 rounded-3xl border border-white/70 bg-white/82 p-8 shadow-[0_25px_80px_rgba(15,23,42,0.12)] backdrop-blur">
         <div className="grid gap-2 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Secure access</p>
-          <h1 className="text-3xl font-semibold text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
             {isSignup ? 'Create your account' : 'Sign in to continue'}
           </h1>
           <p className="text-sm text-slate-600">

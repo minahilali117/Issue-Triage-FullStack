@@ -9,7 +9,12 @@ import { IssuesController } from './issues.controller';
 import { IssuesService } from './issues.service';
 
 @Module({
-  imports: [PrismaModule, ActivityLogModule, RealtimeModule, NotificationsModule],
+  imports: [
+    PrismaModule,
+    ActivityLogModule,
+    RealtimeModule,
+    NotificationsModule,
+  ],
   controllers: [IssuesController],
   providers: [IssuesService, JwtAuthGuard, RolesGuard],
 })

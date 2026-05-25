@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
-import NotificationBell from '@/components/notification-bell';
+import AppShell from '@/components/app-shell';
 
 const Dashboard = dynamic(() => import('@/components/dashboard'), {
   ssr: false,
@@ -30,35 +30,20 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-black/10 bg-white/70 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-              Internal tool
-            </p>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              Issue Triage Dashboard
-            </h1>
-          </div>
-          <NotificationBell />
-        </div>
-      </header>
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
-        <section className="grid gap-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-            Today at a glance
-          </p>
-          <h2 className="text-3xl font-semibold text-slate-900">
-            Triage, assign, and close issues with clarity.
-          </h2>
-          <p className="max-w-2xl text-base text-slate-600">
-            Track engineering requests with fast filters, consistent priorities,
-            and a clean handoff between product and engineering.
-          </p>
-        </section>
+    <AppShell>
+      <section className="grid gap-3 rounded-3xl border border-slate-200 bg-white/75 px-5 py-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-white/5 sm:px-6">
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Today at a glance</p>
+        <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+          Triage, assign, and close issues with clarity.
+        </h2>
+        <p className="max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
+          Track engineering requests with fast filters, consistent priorities,
+          and a calm, responsive workflow that feels alive without getting loud.
+        </p>
+      </section>
+      <div className="mt-8">
         <Dashboard />
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

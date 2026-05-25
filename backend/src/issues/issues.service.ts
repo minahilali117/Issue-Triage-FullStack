@@ -124,7 +124,9 @@ export class IssuesService {
     const sortOrder: SortOrder = query.sortOrder ?? 'desc';
     const orderBy =
       sortBy === 'assignee'
-        ? ({ assignee: { name: sortOrder } } as Prisma.IssueOrderByWithRelationInput)
+        ? ({
+            assignee: { name: sortOrder },
+          } as Prisma.IssueOrderByWithRelationInput)
         : ({ [sortBy]: sortOrder } as Prisma.IssueOrderByWithRelationInput);
 
     const [data, total] = await Promise.all([

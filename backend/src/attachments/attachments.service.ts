@@ -36,7 +36,11 @@ export class AttachmentsService {
     });
   }
 
-  async create(issueId: number, file: Express.Multer.File, actor: AttachmentActor) {
+  async create(
+    issueId: number,
+    file: Express.Multer.File,
+    actor: AttachmentActor,
+  ) {
     const issue = await this.getIssueContext(issueId);
 
     const attachment = await this.prisma.attachment.create({
@@ -53,7 +57,11 @@ export class AttachmentsService {
       },
     });
 
-    await this.notificationsService.notifyAttachmentUploaded(issue, attachment, actor);
+    await this.notificationsService.notifyAttachmentUploaded(
+      issue,
+      attachment,
+      actor,
+    );
 
     return attachment;
   }
@@ -94,7 +102,11 @@ export class AttachmentsService {
 
     await this.prisma.attachment.delete({ where: { id: attachment.id } });
 
-    await this.notificationsService.notifyAttachmentDeleted(issue, attachment, actor);
+    await this.notificationsService.notifyAttachmentDeleted(
+      issue,
+      attachment,
+      actor,
+    );
 
     try {
       await unlink(attachment.filePath);

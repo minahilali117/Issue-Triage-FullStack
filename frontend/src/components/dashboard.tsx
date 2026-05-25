@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
 import {
   ApiError,
@@ -240,8 +241,13 @@ export default function Dashboard() {
   const canCreateIssues = user?.role === 'ADMIN' || user?.role === 'DEVELOPER';
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div id="issues" className="flex flex-col gap-6">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
+        className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/75 px-4 py-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+      >
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
             Issues overview
@@ -266,6 +272,7 @@ export default function Dashboard() {
           </Button>
           {canCreateIssues ? (
             <Button
+              id="new-issue-button"
               type="button"
               onClick={() => {
                 setEditingIssue(null);
@@ -276,7 +283,7 @@ export default function Dashboard() {
             </Button>
           ) : null}
         </div>
-      </div>
+      </motion.div>
       <SummaryCards summary={summaryQuery.data ?? null} isLoading={isLoading} />
       <FilterBar
         initial={query}
@@ -287,9 +294,9 @@ export default function Dashboard() {
       {error ? <ErrorState message={error} /> : null}
 
       {isLoading ? (
-        <LoadingState label="Loading issues..." />
+        <LoadingState label="Loading issues..." variant="list" />
       ) : issues.length === 0 ? (
-        <EmptyState />
+        <EmptyState onReset={() => updateQuery(DEFAULT_QUERY)} />
       ) : (
         <IssueTable
           issues={issues}

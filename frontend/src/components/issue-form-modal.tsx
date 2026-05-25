@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Issue,
   IssueInput,
@@ -102,8 +103,24 @@ export default function IssueFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <motion.button
+          type="button"
+          aria-label="Close issue editor"
+          className="absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-[2px]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+        <motion.div
+          className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_30px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950 sm:p-6"
+          initial={{ opacity: 0, y: 14, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 10, scale: 0.98 }}
+          transition={{ duration: 0.18 }}
+        >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
@@ -239,7 +256,8 @@ export default function IssueFormModal({
             </Button>
           </div>
         </form>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }

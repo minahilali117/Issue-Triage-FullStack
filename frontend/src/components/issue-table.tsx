@@ -1,5 +1,6 @@
 import type { AuthUser } from '@/types/auth';
 import { Issue } from '@/types/issue';
+import { motion, AnimatePresence } from 'framer-motion';
 import PriorityBadge from './priority-badge';
 import StatusBadge from './status-badge';
 
@@ -21,10 +22,17 @@ export default function IssueTable({
   const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'DEVELOPER';
   const canDelete = currentUser?.role === 'ADMIN';
 
+  const getInitials = (value?: string | null) => {
+    if (!value) return 'U';
+    const parts = value.trim().split(/\s+/);
+    return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || value.slice(0, 2).toUpperCase();
+  };
+
   return (
-    <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
-      <table className="min-w-[900px] w-full text-left text-sm">
-        <thead className="bg-slate-900 text-xs uppercase tracking-[0.2em] text-white">
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-white/5">
+      <div className="overflow-x-auto">
+      <table className="min-w-240 w-full text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-[0.2em] text-white dark:bg-slate-900">
           <tr>
             <th className="px-4 py-3">Title</th>
             <th className="px-4 py-3">Status</th>
@@ -37,13 +45,25 @@ export default function IssueTable({
           </tr>
         </thead>
         <tbody>
+          <AnimatePresence initial={false}>
           {issues.map((issue) => (
-            <tr key={issue.id} className="border-t border-slate-200">
+            <motion.tr
+              key={issue.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.16 }}
+              whileHover={{ backgroundColor: 'rgba(248,250,252,0.92)' }}
+              className="border-t border-slate-200/80 transition-colors dark:border-white/10"
+            >
               <td className="px-4 py-4">
-                <p className="font-semibold text-slate-900">{issue.title}</p>
-                <p className="mt-1 text-xs text-slate-500">
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold text-slate-950 dark:text-white">{issue.title}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                   {issue.description}
-                </p>
+                  </p>
+                </div>
               </td>
               <td className="px-4 py-4">
                 <StatusBadge status={issue.status} />
@@ -51,14 +71,19 @@ export default function IssueTable({
               <td className="px-4 py-4">
                 <PriorityBadge priority={issue.priority} />
               </td>
-              <td className="px-4 py-4 text-slate-700">{issue.category}</td>
-              <td className="px-4 py-4 text-slate-700">
-                {issue.assignee?.name ?? issue.assignee?.email ?? 'Unassigned'}
+              <td className="px-4 py-4 text-slate-700 dark:text-slate-300">{issue.category}</td>
+              <td className="px-4 py-4 text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10">
+                    {getInitials(issue.assignee?.name ?? issue.assignee?.email)}
+                  </span>
+                  <span>{issue.assignee?.name ?? issue.assignee?.email ?? 'Unassigned'}</span>
+                </div>
               </td>
-              <td className="px-4 py-4 text-slate-500">
+              <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
                 {new Date(issue.updatedAt).toLocaleDateString()}
               </td>
-              <td className="px-4 py-4 text-slate-700">
+              <td className="px-4 py-4 text-slate-700 dark:text-slate-300">
                 {issue.createdBy?.name ?? issue.createdBy?.email}
               </td>
               <td className="px-4 py-4">
@@ -90,10 +115,12 @@ export default function IssueTable({
                   ) : null}
                 </div>
               </td>
-            </tr>
+            </motion.tr>
           ))}
+          </AnimatePresence>
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

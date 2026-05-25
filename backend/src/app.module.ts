@@ -9,6 +9,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { UsersModule } from './users/users.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -25,5 +26,6 @@ import { UsersModule } from './users/users.module';
     RealtimeModule,
     UsersModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

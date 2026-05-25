@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Trash2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from './auth-provider';
 import {
   ApiError,
@@ -206,14 +207,30 @@ export default function IssueDetailsModal({
   const canUpload = canComment;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <AnimatePresence>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <motion.button
+        type="button"
+        aria-label="Close issue details"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-[2px]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      />
+      <motion.div
+        className="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-[0_30px_100px_rgba(15,23,42,0.22)] backdrop-blur dark:border-white/10 dark:bg-slate-950/95 sm:p-6"
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+        transition={{ duration: 0.18 }}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Issue details</p>
-            <h3 className="text-2xl font-semibold text-slate-900">{issue?.title ?? 'Loading issue'}</h3>
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Issue details</p>
+            <h3 className="text-2xl font-semibold text-slate-950 dark:text-white">{issue?.title ?? 'Loading issue'}</h3>
             {issue ? (
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Assigned to {formatActor(issue.assignee)} · Created by {formatActor(issue.createdBy)}
               </p>
             ) : null}
@@ -222,12 +239,20 @@ export default function IssueDetailsModal({
         </div>
 
         {issueQuery.isLoading ? (
-          <LoadingState label="Loading details..." />
+          <LoadingState label="Loading details..." variant="details" />
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <section className="grid gap-4">
-              <div className="rounded-lg border border-black/10 p-4">
-                <h4 className="font-semibold text-slate-900">Comments</h4>
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 }}
+              className="grid gap-4"
+            >
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="font-semibold text-slate-950 dark:text-white">Comments</h4>
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Discussion</span>
+                </div>
                 {canComment ? (
                   <form
                     className="mt-3 grid gap-2"
@@ -245,7 +270,7 @@ export default function IssueDetailsModal({
                       value={newComment}
                       onChange={(event) => setNewComment(event.target.value)}
                       maxLength={2000}
-                      className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      className="min-h-24 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-white/10 dark:bg-slate-950 dark:text-white"
                       placeholder="Add a comment. Type @aisha to mention someone."
                     />
                     {mentionSuggestions.length > 0 ? (
@@ -282,11 +307,17 @@ export default function IssueDetailsModal({
                     const isEditing = editing?.id === comment.id;
 
                     return (
-                      <article key={comment.id} className="rounded-lg border border-slate-200 p-3">
+                      <motion.article
+                        layout
+                        key={comment.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-950"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">{formatActor(comment.author)}</p>
-                            <p className="text-xs text-slate-500">{new Date(comment.createdAt).toLocaleString()}</p>
+                            <p className="text-sm font-semibold text-slate-950 dark:text-white">{formatActor(comment.author)}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(comment.createdAt).toLocaleString()}</p>
                           </div>
                           {canEdit || canDelete ? (
                             <div className="flex gap-2">
@@ -329,18 +360,23 @@ export default function IssueDetailsModal({
                             </div>
                           </form>
                         ) : (
-                          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{comment.content}</p>
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">{comment.content}</p>
                         )}
-                      </article>
+                      </motion.article>
                     );
                   })}
                 </div>
               </div>
-            </section>
+            </motion.section>
 
-            <aside className="grid gap-4">
-              <div className="rounded-lg border border-black/10 p-4">
-                <h4 className="font-semibold text-slate-900">Attachments</h4>
+            <motion.aside
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="grid gap-4"
+            >
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
+                <h4 className="font-semibold text-slate-950 dark:text-white">Attachments</h4>
                 {canUpload ? (
                   <div className="mt-3 grid gap-2">
                     <Input
@@ -369,7 +405,7 @@ export default function IssueDetailsModal({
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                      className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
                     >
                       <button
                         type="button"
@@ -400,23 +436,24 @@ export default function IssueDetailsModal({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-black/10 p-4">
-                <h4 className="font-semibold text-slate-900">Activity</h4>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
+                <h4 className="font-semibold text-slate-950 dark:text-white">Activity</h4>
                 <div className="mt-3 grid gap-3">
                   {(issue?.activityLog ?? []).map((item) => (
-                    <div key={item.id} className="border-l-2 border-slate-200 pl-3">
-                      <p className="text-sm text-slate-800">
+                    <div key={item.id} className="border-l-2 border-slate-200 pl-3 dark:border-white/15">
+                      <p className="text-sm text-slate-800 dark:text-slate-200">
                         {formatActor(item.user)} {formatActivity(item.type, item.oldValue, item.newValue)}
                       </p>
-                      <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(item.createdAt).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
               </div>
-            </aside>
+            </motion.aside>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
+    </AnimatePresence>
   );
 }

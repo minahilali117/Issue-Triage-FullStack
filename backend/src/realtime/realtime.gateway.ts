@@ -17,15 +17,17 @@ const parseCookieHeader = (cookieHeader?: string) => {
     return {} as Record<string, string>;
   }
 
-  return cookieHeader.split(';').reduce<Record<string, string>>((accumulator, part) => {
-    const [rawKey, ...rest] = part.trim().split('=');
-    if (!rawKey) {
-      return accumulator;
-    }
+  return cookieHeader
+    .split(';')
+    .reduce<Record<string, string>>((accumulator, part) => {
+      const [rawKey, ...rest] = part.trim().split('=');
+      if (!rawKey) {
+        return accumulator;
+      }
 
-    accumulator[rawKey] = decodeURIComponent(rest.join('='));
-    return accumulator;
-  }, {});
+      accumulator[rawKey] = decodeURIComponent(rest.join('='));
+      return accumulator;
+    }, {});
 };
 
 @Injectable()
@@ -44,7 +46,7 @@ export class RealtimeGateway implements OnGatewayConnection {
   async handleConnection(client: Socket) {
     try {
       const userId = await this.authenticateClient(client);
-      client.join(this.userRoom(userId));
+      void client.join(this.userRoom(userId));
     } catch {
       client.disconnect(true);
       return;
@@ -66,11 +68,15 @@ export class RealtimeGateway implements OnGatewayConnection {
   }
 
   emitNotificationCreated(recipientId: number, payload: unknown) {
-    this.server?.to(this.userRoom(recipientId)).emit('notification.created', payload);
+    this.server
+      ?.to(this.userRoom(recipientId))
+      .emit('notification.created', payload);
   }
 
   emitNotificationUpdated(recipientId: number, payload: unknown) {
-    this.server?.to(this.userRoom(recipientId)).emit('notification.updated', payload);
+    this.server
+      ?.to(this.userRoom(recipientId))
+      .emit('notification.updated', payload);
   }
 
   private userRoom(userId: number) {

@@ -96,7 +96,10 @@ export class NotificationsService {
     return { unreadCount: 0 };
   }
 
-  async notifyIssueCreated(issue: NotificationIssueContext, actor: NotificationActor) {
+  async notifyIssueCreated(
+    issue: NotificationIssueContext,
+    actor: NotificationActor,
+  ) {
     if (issue.assigneeId && issue.assigneeId !== actor.userId) {
       await this.createForRecipients({
         recipients: [issue.assignee],
@@ -120,10 +123,18 @@ export class NotificationsService {
     const descriptionChanged = before.description !== after.description;
     const categoryChanged = before.category !== after.category;
     const genericUpdate =
-      titleChanged || descriptionChanged || categoryChanged || statusChanged || priorityChanged;
+      titleChanged ||
+      descriptionChanged ||
+      categoryChanged ||
+      statusChanged ||
+      priorityChanged;
     const recipients = this.issueRecipients(before, after);
 
-    if (assigneeChanged && after.assigneeId && after.assigneeId !== actor.userId) {
+    if (
+      assigneeChanged &&
+      after.assigneeId &&
+      after.assigneeId !== actor.userId
+    ) {
       await this.createForRecipients({
         recipients,
         actor,
@@ -167,7 +178,10 @@ export class NotificationsService {
     }
   }
 
-  async notifyIssueDeleted(issue: NotificationIssueContext, actor: NotificationActor) {
+  async notifyIssueDeleted(
+    issue: NotificationIssueContext,
+    actor: NotificationActor,
+  ) {
     await this.createForRecipients({
       recipients: this.issueRecipients(issue),
       actor,
@@ -218,7 +232,10 @@ export class NotificationsService {
       message: this.buildCommentAddedMessage(issue, actor),
     });
 
-    const mentionRecipients = await this.resolveMentionRecipients(options.content, options.mentionIds);
+    const mentionRecipients = await this.resolveMentionRecipients(
+      options.content,
+      options.mentionIds,
+    );
     if (mentionRecipients.length > 0) {
       await this.createForRecipients({
         recipients: mentionRecipients,
@@ -243,7 +260,10 @@ export class NotificationsService {
       message: this.buildCommentUpdatedMessage(issue, actor),
     });
 
-    const mentionRecipients = await this.resolveMentionRecipients(options.content, options.mentionIds);
+    const mentionRecipients = await this.resolveMentionRecipients(
+      options.content,
+      options.mentionIds,
+    );
     if (mentionRecipients.length > 0) {
       await this.createForRecipients({
         recipients: mentionRecipients,
@@ -400,7 +420,9 @@ export class NotificationsService {
     const recipientIds = Array.from(
       new Set(
         params.recipients
-          .filter((recipient): recipient is NotificationUserRef => Boolean(recipient))
+          .filter((recipient): recipient is NotificationUserRef =>
+            Boolean(recipient),
+          )
           .filter((recipient) => recipient.id !== params.actor.userId)
           .map((recipient) => recipient.id),
       ),
@@ -444,7 +466,10 @@ export class NotificationsService {
     return issues.flatMap((issue) => [issue.createdBy, issue.assignee]);
   }
 
-  private async resolveMentionRecipients(content: string, mentionIds?: number[]) {
+  private async resolveMentionRecipients(
+    content: string,
+    mentionIds?: number[],
+  ) {
     const resolvedIds = new Set<number>(mentionIds ?? []);
     const mentionTokens = Array.from(
       content.matchAll(/@([a-zA-Z0-9._-]+)/g),
@@ -461,8 +486,13 @@ export class NotificationsService {
 
     for (const user of users) {
       const localPart = user.email.split('@')[0].toLowerCase();
-      const normalizedName = (user.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-      if (mentionTokens.includes(localPart) || mentionTokens.includes(normalizedName)) {
+      const normalizedName = (user.name ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+      if (
+        mentionTokens.includes(localPart) ||
+        mentionTokens.includes(normalizedName)
+      ) {
         resolvedIds.add(user.id);
       }
     }

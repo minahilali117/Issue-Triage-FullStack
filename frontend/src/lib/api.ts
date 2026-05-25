@@ -9,6 +9,7 @@ import {
   IssueSummary,
   IssueUpdateInput,
   IssueUser,
+  UserRole,
 } from '@/types/issue';
 import type {
   NotificationListResponse,
@@ -152,6 +153,59 @@ export const fetchCurrentUser = async (): Promise<AuthResponse['user']> => {
   );
 
   await ensureOk(response, 'Failed to load current user.');
+
+  return response.json();
+};
+
+export const updateMyProfile = async (payload: {
+  name?: string | null;
+}): Promise<AuthResponse['user']> => {
+  const response = await fetch(
+    `${API_BASE_URL}/users/me/profile`,
+    buildRequest({
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
+
+  await ensureOk(response, 'Failed to update profile.');
+
+  return response.json();
+};
+
+export const changeMyPassword = async (payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ success: boolean }> => {
+  const response = await fetch(
+    `${API_BASE_URL}/users/me/password`,
+    buildRequest({
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
+
+  await ensureOk(response, 'Failed to change password.');
+
+  return response.json();
+};
+
+export const updateUserRole = async (
+  userId: number,
+  role: UserRole,
+): Promise<IssueUser> => {
+  const response = await fetch(
+    `${API_BASE_URL}/users/${userId}/role`,
+    buildRequest({
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    }),
+  );
+
+  await ensureOk(response, 'Failed to update user role.');
 
   return response.json();
 };
