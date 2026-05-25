@@ -10,6 +10,10 @@ import {
   IssueUpdateInput,
   IssueUser,
 } from '@/types/issue';
+import type {
+  NotificationListResponse,
+  NotificationQuery,
+} from '@/types/notification';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -24,6 +28,20 @@ const buildQueryString = (query: IssueQuery) => {
 
     params.set(key, String(value));
   });
+
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+const buildNotificationQueryString = (query?: NotificationQuery) => {
+  if (!query) {
+    return '';
+  }
+
+  const params = new URLSearchParams();
+  if (query.unread !== undefined) params.set('unread', String(query.unread));
+  if (query.page !== undefined) params.set('page', String(query.page));
+  if (query.limit !== undefined) params.set('limit', String(query.limit));
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : '';
@@ -232,13 +250,16 @@ export const fetchComments = async (issueId: number): Promise<Comment[]> => {
   return response.json();
 };
 
-export const createComment = async (issueId: number, content: string) => {
+export const createComment = async (
+  issueId: number,
+  payload: { content: string; mentionIds?: number[] },
+) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/comments`,
     buildRequest({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(payload),
     }),
   );
 
@@ -250,14 +271,14 @@ export const createComment = async (issueId: number, content: string) => {
 export const updateComment = async (
   issueId: number,
   commentId: number,
-  content: string,
+  payload: { content: string; mentionIds?: number[] },
 ) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/comments/${commentId}`,
     buildRequest({
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(payload),
     }),
   );
 
@@ -331,6 +352,52 @@ export const deleteAttachment = async (issueId: number, attachmentId: number) =>
   );
 
   await ensureOk(response, 'Failed to delete attachment.');
+};
+
+export const fetchNotifications = async (
+  query?: NotificationQuery,
+): Promise<NotificationListResponse> => {
+  const response = await fetch(
+    `${API_BASE_URL}/notifications${buildNotificationQueryString(query)}`,
+    buildRequest({ cache: 'no-store' }),
+  );
+
+  await ensureOk(response, 'Failed to load notifications.');
+
+  return response.json();
+};
+
+export const fetchUnreadNotificationCount = async (): Promise<number> => {
+  const response = await fetch(
+    `${API_BASE_URL}/notifications/unread-count`,
+    buildRequest({ cache: 'no-store' }),
+  );
+
+  await ensureOk(response, 'Failed to load notification count.');
+
+  return response.json();
+};
+
+export const markNotificationRead = async (notificationId: number) => {
+  const response = await fetch(
+    `${API_BASE_URL}/notifications/${notificationId}/read`,
+    buildRequest({ method: 'PATCH' }),
+  );
+
+  await ensureOk(response, 'Failed to mark notification as read.');
+
+  return response.json() as Promise<{ unreadCount: number }>;
+};
+
+export const markAllNotificationsRead = async () => {
+  const response = await fetch(
+    `${API_BASE_URL}/notifications/read-all`,
+    buildRequest({ method: 'PATCH' }),
+  );
+
+  await ensureOk(response, 'Failed to mark all notifications as read.');
+
+  return response.json() as Promise<{ unreadCount: number }>;
 };
 
 export const apiBaseUrl = API_BASE_URL;

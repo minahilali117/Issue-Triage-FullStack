@@ -65,7 +65,10 @@ export class IssuesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.issuesService.remove(id);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: { userId: number; role: Role; email: string; name?: string | null },
+  ) {
+    return this.issuesService.remove(id, user);
   }
 }

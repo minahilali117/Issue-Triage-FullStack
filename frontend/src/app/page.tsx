@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
+import NotificationBell from '@/components/notification-bell';
 
 const Dashboard = dynamic(() => import('@/components/dashboard'), {
   ssr: false,
@@ -40,6 +41,7 @@ export default function Home() {
               Issue Triage Dashboard
             </h1>
           </div>
+          <NotificationBell />
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">

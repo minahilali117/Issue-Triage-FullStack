@@ -75,7 +75,7 @@ export class ListIssuesDto {
   @IsOptional()
   limit?: number;
 
-  @IsIn(['createdAt', 'updatedAt', 'priority'])
+  @IsIn(['createdAt', 'updatedAt', 'priority', 'assignee'])
   @IsOptional()
   sortBy?: IssueSortBy;
 

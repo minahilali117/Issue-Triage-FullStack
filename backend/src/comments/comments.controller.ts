@@ -33,7 +33,7 @@ export class CommentsController {
   create(
     @Param('issueId', ParseIntPipe) issueId: number,
     @Body() dto: CreateCommentDto,
-    @CurrentUser() user: { userId: number; role: Role },
+    @CurrentUser() user: { userId: number; email: string; role: Role },
   ) {
     return this.commentsService.create(issueId, dto, user);
   }
@@ -43,7 +43,7 @@ export class CommentsController {
     @Param('issueId', ParseIntPipe) issueId: number,
     @Param('commentId', ParseIntPipe) commentId: number,
     @Body() dto: UpdateCommentDto,
-    @CurrentUser() user: { userId: number; role: Role },
+    @CurrentUser() user: { userId: number; email: string; role: Role },
   ) {
     return this.commentsService.update(issueId, commentId, dto, user);
   }
@@ -52,7 +52,7 @@ export class CommentsController {
   remove(
     @Param('issueId', ParseIntPipe) issueId: number,
     @Param('commentId', ParseIntPipe) commentId: number,
-    @CurrentUser() user: { userId: number; role: Role },
+    @CurrentUser() user: { userId: number; email: string; role: Role },
   ) {
     return this.commentsService.remove(issueId, commentId, user);
   }

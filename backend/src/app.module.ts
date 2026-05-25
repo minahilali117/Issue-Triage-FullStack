@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { CommentsModule } from './comments/comments.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { IssuesModule } from './issues/issues.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { UsersModule } from './users/users.module';
@@ -18,6 +19,7 @@ import { UsersModule } from './users/users.module';
     ActivityLogModule,
     AuthModule,
     IssuesModule,
+    NotificationsModule,
     CommentsModule,
     AttachmentsModule,
     RealtimeModule,

@@ -41,6 +41,20 @@ enum ActivityType {
   COMMENT_DELETED
 }
 
+enum NotificationType {
+  ISSUE_ASSIGNED
+  COMMENT_ADDED
+  COMMENT_MENTIONED
+  COMMENT_UPDATED
+  PRIORITY_CHANGED
+  ISSUE_RESOLVED
+  COMMENT_DELETED
+  ISSUE_UPDATED
+  ISSUE_DELETED
+  ATTACHMENT_UPLOADED
+  ATTACHMENT_DELETED
+}
+
 model Issue {
   id          Int           @id @default(autoincrement())
   title       String        @db.VarChar(200)
@@ -58,6 +72,7 @@ model Issue {
   comments    Comment[]
   activityLog ActivityLog[]
   attachments  Attachment[]
+  notifications Notification[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -83,6 +98,8 @@ model User {
   comments        Comment[]
   activityLogs    ActivityLog[]
   attachments     Attachment[]
+  notificationRecipients Notification[] @relation("NotificationRecipient")
+  notificationActors     Notification[] @relation("NotificationActor")
 }
 
 model Comment {
@@ -119,4 +136,21 @@ model Attachment {
   issueId     Int?
   issue       Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id          Int               @id @default(autoincrement())
+  recipientId Int
+  recipient   User              @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId     Int?
+  actor       User?             @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  issueId     Int?
+  issue       Issue?            @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  type        NotificationType
+  message     String            @db.Text
+  isRead      Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+
+  @@index([recipientId, isRead, createdAt])
+  @@index([recipientId, createdAt])
 }

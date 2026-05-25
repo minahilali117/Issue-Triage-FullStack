@@ -69,13 +69,13 @@ export class AttachmentsController {
   upload(
     @Param('issueId', ParseIntPipe) issueId: number,
     @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: { userId: number },
+    @CurrentUser() user: { userId: number; email: string; role: Role },
   ) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    return this.attachmentsService.create(issueId, file, user.userId);
+    return this.attachmentsService.create(issueId, file, user);
   }
 
   @Get(':attachmentId/download')
@@ -96,7 +96,7 @@ export class AttachmentsController {
   remove(
     @Param('issueId', ParseIntPipe) issueId: number,
     @Param('attachmentId', ParseIntPipe) attachmentId: number,
-    @CurrentUser() user: { userId: number; role: Role },
+    @CurrentUser() user: { userId: number; email: string; role: Role },
   ) {
     return this.attachmentsService.remove(issueId, attachmentId, user);
   }

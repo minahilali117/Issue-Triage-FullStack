@@ -12,7 +12,7 @@ export enum IssuePriority {
   CRITICAL = 'CRITICAL',
 }
 
-export type IssueSortBy = 'createdAt' | 'updatedAt' | 'priority';
+export type IssueSortBy = 'createdAt' | 'updatedAt' | 'priority' | 'assignee';
 export type SortOrder = 'asc' | 'desc';
 
 export type UserRole = 'ADMIN' | 'DEVELOPER' | 'VIEWER';

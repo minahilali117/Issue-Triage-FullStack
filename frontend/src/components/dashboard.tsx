@@ -3,11 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { io } from 'socket.io-client';
 import { useAuth } from '@/components/auth-provider';
 import {
   ApiError,
-  apiBaseUrl,
   createIssue,
   deleteIssue,
   fetchIssues,
@@ -74,34 +72,6 @@ export default function Dashboard() {
     void queryClient.invalidateQueries({ queryKey: ['issues'] });
     void queryClient.invalidateQueries({ queryKey: ['issue-summary'] });
   };
-
-  useEffect(() => {
-    const socket = io(apiBaseUrl, {
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-    });
-    socket.on('issue.updated', () => {
-      refreshDashboard();
-      appToast.realtimeIssueUpdated();
-    });
-    socket.on('issue.assigned', () => {
-      refreshDashboard();
-      appToast.realtimeIssueAssigned();
-    });
-    socket.on('comment.added', (payload: { issueId?: number }) => {
-      refreshDashboard();
-      appToast.realtimeCommentAdded();
-      if (payload.issueId) {
-        void queryClient.invalidateQueries({ queryKey: ['issue', payload.issueId] });
-        void queryClient.invalidateQueries({ queryKey: ['comments', payload.issueId] });
-      }
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryClient]);
 
   // Sync URL -> state when the search params change (back/forward or direct link)
   useEffect(() => {
@@ -379,6 +349,7 @@ export default function Dashboard() {
       <IssueDetailsModal
         issueId={selectedIssueId}
         onClose={() => updateSelectedIssue(null)}
+        users={usersQuery.data ?? []}
       />
     </div>
   );

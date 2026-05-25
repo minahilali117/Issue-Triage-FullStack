@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import type { Issue, IssueInput } from '@/types/issue';
+import type { NotificationItem } from '@/types/notification';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -13,6 +14,20 @@ const DEFAULT_DURATIONS: Record<ToastVariant, number> = {
   error: 3500,
   warning: 3000,
   info: 2200,
+};
+
+const notificationVariant: Record<NotificationItem['type'], ToastVariant> = {
+  ISSUE_ASSIGNED: 'info',
+  COMMENT_ADDED: 'success',
+  COMMENT_MENTIONED: 'success',
+  COMMENT_UPDATED: 'info',
+  PRIORITY_CHANGED: 'warning',
+  ISSUE_RESOLVED: 'success',
+  COMMENT_DELETED: 'warning',
+  ISSUE_UPDATED: 'info',
+  ISSUE_DELETED: 'warning',
+  ATTACHMENT_UPLOADED: 'info',
+  ATTACHMENT_DELETED: 'warning',
 };
 
 const recentToastKeys = new Map<string, number>();
@@ -87,6 +102,12 @@ export const appToast = {
   attachmentUploadFailed: (message: string) => emit('error', message),
   attachmentDeleted: () => emit('success', 'Attachment deleted.'),
   attachmentDownloadFailed: (message: string) => emit('error', message),
+  notificationReceived: (
+    notification: Pick<NotificationItem, 'id' | 'message' | 'type'>,
+  ) =>
+    emit(notificationVariant[notification.type], notification.message, {
+      dedupeKey: `notification:${notification.id}`,
+    }),
   realtimeIssueUpdated: () =>
     emit('info', 'Issue updated in realtime.', { dedupeKey: 'realtime:issue-updated' }),
   realtimeIssueAssigned: () =>

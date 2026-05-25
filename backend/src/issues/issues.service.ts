@@ -8,6 +8,7 @@ import { ActivityType, Prisma, Role } from '@prisma/client';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { PrismaService } from '../prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { ListIssuesDto } from './dto/list-issues.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
@@ -26,6 +27,7 @@ export class IssuesService {
     private readonly prisma: PrismaService,
     private readonly activityLogService: ActivityLogService,
     private readonly realtimeGateway: RealtimeGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreateIssueDto, actor: IssueActor) {
@@ -52,6 +54,8 @@ export class IssuesService {
       type: ActivityType.ISSUE_CREATED,
       message: 'Issue created',
     });
+
+    await this.notificationsService.notifyIssueCreated(issue, actor);
 
     const shapedIssue = this.shapeIssue(issue);
     this.realtimeGateway.emitIssueUpdated(shapedIssue);
@@ -97,6 +101,15 @@ export class IssuesService {
         OR: [
           { title: { contains: query.search, mode: 'insensitive' } },
           { description: { contains: query.search, mode: 'insensitive' } },
+          { category: { contains: query.search, mode: 'insensitive' } },
+          {
+            assignee: {
+              OR: [
+                { name: { contains: query.search, mode: 'insensitive' } },
+                { email: { contains: query.search, mode: 'insensitive' } },
+              ],
+            },
+          },
         ],
       });
     }
@@ -109,15 +122,17 @@ export class IssuesService {
     const limit = query.limit ?? 10;
     const sortBy: IssueSortBy = query.sortBy ?? 'createdAt';
     const sortOrder: SortOrder = query.sortOrder ?? 'desc';
+    const orderBy =
+      sortBy === 'assignee'
+        ? ({ assignee: { name: sortOrder } } as Prisma.IssueOrderByWithRelationInput)
+        : ({ [sortBy]: sortOrder } as Prisma.IssueOrderByWithRelationInput);
 
     const [data, total] = await Promise.all([
       this.prisma.issue.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
+        orderBy,
         include: this.issueInclude,
       }),
       this.prisma.issue.count({ where }),
@@ -179,6 +194,7 @@ export class IssuesService {
       where: { id },
       include: {
         assignee: { select: { id: true, email: true, name: true } },
+        createdBy: { select: { id: true, email: true, name: true } },
       },
     });
 
@@ -244,6 +260,7 @@ export class IssuesService {
     });
 
     await this.logIssueChanges(current, issue, actor.userId, data, issue.id);
+    await this.notificationsService.notifyIssueUpdated(current, issue, actor);
 
     const shapedIssue = this.shapeIssue(issue);
     this.realtimeGateway.emitIssueUpdated(shapedIssue);
@@ -256,8 +273,17 @@ export class IssuesService {
     return shapedIssue;
   }
 
-  async remove(id: number) {
-    await this.getById(id);
+  async remove(
+    id: number,
+    actor: { userId: number; email: string; name?: string | null; role: Role },
+  ) {
+    const issue = await this.getById(id);
+    await this.notificationsService.notifyIssueDeleted(issue, {
+      userId: actor.userId,
+      email: actor.email,
+      name: actor.name,
+      role: actor.role,
+    });
     return this.prisma.issue.delete({ where: { id } });
   }
 

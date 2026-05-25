@@ -6,13 +6,24 @@ import {
 import { Role } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { PrismaService } from '../prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+interface AttachmentActor {
+  userId: number;
+  email: string;
+  role: Role;
+  name?: string | null;
+}
 
 @Injectable()
 export class AttachmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async list(issueId: number) {
-    await this.ensureIssue(issueId);
+    await this.getIssueContext(issueId);
 
     return this.prisma.attachment.findMany({
       where: { issueId },
@@ -25,14 +36,14 @@ export class AttachmentsService {
     });
   }
 
-  async create(issueId: number, file: Express.Multer.File, userId: number) {
-    await this.ensureIssue(issueId);
+  async create(issueId: number, file: Express.Multer.File, actor: AttachmentActor) {
+    const issue = await this.getIssueContext(issueId);
 
-    return this.prisma.attachment.create({
+    const attachment = await this.prisma.attachment.create({
       data: {
         fileName: file.originalname,
         filePath: file.path,
-        uploadedById: userId,
+        uploadedById: actor.userId,
         issueId,
       },
       include: {
@@ -41,6 +52,10 @@ export class AttachmentsService {
         },
       },
     });
+
+    await this.notificationsService.notifyAttachmentUploaded(issue, attachment, actor);
+
+    return attachment;
   }
 
   async getForDownload(issueId: number, attachmentId: number) {
@@ -55,13 +70,15 @@ export class AttachmentsService {
     return attachment;
   }
 
-  async remove(
-    issueId: number,
-    attachmentId: number,
-    actor: { userId: number; role: Role },
-  ) {
+  async remove(issueId: number, attachmentId: number, actor: AttachmentActor) {
+    const issue = await this.getIssueContext(issueId);
     const attachment = await this.prisma.attachment.findFirst({
       where: { id: attachmentId, issueId },
+      include: {
+        uploadedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
     });
 
     if (!attachment) {
@@ -77,6 +94,8 @@ export class AttachmentsService {
 
     await this.prisma.attachment.delete({ where: { id: attachment.id } });
 
+    await this.notificationsService.notifyAttachmentDeleted(issue, attachment, actor);
+
     try {
       await unlink(attachment.filePath);
     } catch {
@@ -86,12 +105,26 @@ export class AttachmentsService {
     return { success: true };
   }
 
-  private async ensureIssue(issueId: number) {
+  private async getIssueContext(issueId: number) {
     const issue = await this.prisma.issue.findUnique({
       where: { id: issueId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        status: true,
+        priority: true,
+        assigneeId: true,
+        createdById: true,
+        assignee: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
     if (!issue) {
       throw new NotFoundException('Issue not found');
     }
+
+    return issue;
   }
 }

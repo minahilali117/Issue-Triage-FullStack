@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from './auth-provider';
@@ -16,7 +16,7 @@ import {
   updateComment,
   uploadAttachment,
 } from '@/lib/api';
-import { Comment } from '@/types/issue';
+import { Comment, IssueUser } from '@/types/issue';
 import { Button, Input } from './ui';
 import LoadingState from './loading-state';
 import { appToast } from '@/lib/toast';
@@ -24,7 +24,45 @@ import { appToast } from '@/lib/toast';
 interface IssueDetailsModalProps {
   issueId: number | null;
   onClose: () => void;
+  users: IssueUser[];
 }
+
+const normalizeMentionKey = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+const getUserMentionKey = (user: IssueUser) =>
+  user.email.split('@')[0].toLowerCase();
+
+const extractMentionIds = (content: string, users: IssueUser[]) => {
+  const tokens = new Set(
+    Array.from(content.matchAll(/@([a-zA-Z0-9._-]+)/g), (match) => match[1].toLowerCase()),
+  );
+
+  if (tokens.size === 0) {
+    return [] as number[];
+  }
+
+  const ids = new Set<number>();
+  for (const user of users) {
+    const localPart = getUserMentionKey(user);
+    const normalizedName = normalizeMentionKey(user.name ?? '');
+    const normalizedEmail = normalizeMentionKey(user.email);
+    if (
+      tokens.has(localPart) ||
+      tokens.has(normalizedName) ||
+      tokens.has(normalizedEmail)
+    ) {
+      ids.add(user.id);
+    }
+  }
+
+  return Array.from(ids);
+};
+
+const getTrailingMentionQuery = (content: string) => {
+  const match = content.match(/(?:^|\s)@([a-zA-Z0-9._-]*)$/);
+  return match?.[1] ?? '';
+};
 
 const allowedAttachmentTypes = new Set([
   'image/png',
@@ -53,11 +91,36 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 export default function IssueDetailsModal({
   issueId,
   onClose,
+  users,
 }: IssueDetailsModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState('');
   const [editing, setEditing] = useState<Comment | null>(null);
+
+  const mentionQuery = useMemo(
+    () => getTrailingMentionQuery(newComment),
+    [newComment],
+  );
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionQuery) {
+      return [] as IssueUser[];
+    }
+
+    const needle = mentionQuery.toLowerCase();
+    return users
+      .filter((candidate) => {
+        const localPart = getUserMentionKey(candidate);
+        const normalizedName = normalizeMentionKey(candidate.name ?? '');
+        const normalizedEmail = normalizeMentionKey(candidate.email);
+        return (
+          localPart.includes(needle) ||
+          normalizedName.includes(needle) ||
+          normalizedEmail.includes(needle)
+        );
+      })
+      .slice(0, 5);
+  }, [mentionQuery, users]);
 
   const issueQuery = useQuery({
     queryKey: ['issue', issueId],
@@ -83,7 +146,8 @@ export default function IssueDetailsModal({
   };
 
   const addCommentMutation = useMutation({
-    mutationFn: (content: string) => createComment(issueId as number, content),
+    mutationFn: (payload: { content: string; mentionIds: number[] }) =>
+      createComment(issueId as number, payload),
     onSuccess: () => {
       setNewComment('');
       appToast.commentAdded();
@@ -92,8 +156,11 @@ export default function IssueDetailsModal({
     onError: (error) => appToast.error(getErrorMessage(error, 'Could not add comment.')),
   });
   const editCommentMutation = useMutation({
-    mutationFn: (payload: { id: number; content: string }) =>
-      updateComment(issueId as number, payload.id, payload.content),
+    mutationFn: (payload: { id: number; content: string; mentionIds: number[] }) =>
+      updateComment(issueId as number, payload.id, {
+        content: payload.content,
+        mentionIds: payload.mentionIds,
+      }),
     onSuccess: () => {
       setEditing(null);
       appToast.commentUpdated();
@@ -167,7 +234,10 @@ export default function IssueDetailsModal({
                     onSubmit={(event) => {
                       event.preventDefault();
                       if (newComment.trim()) {
-                        addCommentMutation.mutate(newComment.trim());
+                        addCommentMutation.mutate({
+                          content: newComment.trim(),
+                          mentionIds: extractMentionIds(newComment, users),
+                        });
                       }
                     }}
                   >
@@ -176,8 +246,30 @@ export default function IssueDetailsModal({
                       onChange={(event) => setNewComment(event.target.value)}
                       maxLength={2000}
                       className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="Add a comment"
+                      placeholder="Add a comment. Type @aisha to mention someone."
                     />
+                    {mentionSuggestions.length > 0 ? (
+                      <div className="grid gap-1 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+                        <p className="font-medium uppercase tracking-[0.2em] text-slate-500">Mentions</p>
+                        <div className="flex flex-wrap gap-2">
+                          {mentionSuggestions.map((candidate) => (
+                            <button
+                              key={candidate.id}
+                              type="button"
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:text-slate-950"
+                              onClick={() => {
+                                const mentionToken = getUserMentionKey(candidate);
+                                setNewComment((current) =>
+                                  current.replace(/@([a-zA-Z0-9._-]*)$/, `@${mentionToken} `),
+                                );
+                              }}
+                            >
+                              @{getUserMentionKey(candidate)} · {candidate.name ?? candidate.email}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <Button type="submit" disabled={addCommentMutation.isPending}>Add comment</Button>
                   </form>
                 ) : null}
@@ -220,6 +312,7 @@ export default function IssueDetailsModal({
                                 editCommentMutation.mutate({
                                   id: comment.id,
                                   content: editing.content.trim(),
+                                  mentionIds: extractMentionIds(editing.content, users),
                                 });
                               }
                             }}
