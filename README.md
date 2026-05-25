@@ -4,176 +4,381 @@ A small internal tool for creating, triaging, and tracking engineering issues.
 
 ## Tech Stack
 
-- Frontend: Next.js (App Router) + TypeScript + Tailwind CSS
-- Backend: NestJS + TypeScript + Prisma
-- Database: SQLite (local)
+### Frontend
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- TanStack Query
+- React Hook Form
+- Zod validation
+
+### Backend
+- NestJS
+- TypeScript
+- Prisma ORM
+- Passport JWT auth
+- bcrypt
+- Multer
+- class-validator
+
+### Database
+- PostgreSQL
+
+### DevOps
+- Docker Compose
+- GitHub Actions CI
+
+---
 
 ## Project Structure
 
 - frontend/ - Next.js dashboard
 - backend/ - NestJS API
 
+---
+
 ## Requirements
 
 - Node.js 18+ (recommended)
 - npm
+- Docker Desktop (optional)
 
-## Setup
+---
 
-### 1) Backend
+# Setup
+
+## 1) Backend
 
 ```bash
 cd backend
 npm install
 ```
 
-Create the database and seed data:
+Create `.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres123@localhost:5432/triage_dashboard?schema=public"
+JWT_SECRET="super-secret-key"
+CORS_ORIGIN="http://localhost:3000"
+# Optional cookie settings
+# AUTH_COOKIE_NAME="triage_auth"
+# AUTH_COOKIE_SECURE="false"
+# AUTH_COOKIE_MAX_AGE_MS="86400000"
+```
+
+Run migrations + seed data:
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npm run db:seed
 ```
 
-Start the API:
+Start backend:
 
 ```bash
 npm run start:dev
 ```
 
-The API runs on http://localhost:4000 by default.
+Backend runs on:
 
-### 2) Frontend
+```txt
+http://localhost:4000
+```
+
+---
+
+## 2) Frontend
 
 ```bash
 cd frontend
 npm install
+```
+
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+```
+
+Start frontend:
+
+```bash
 npm run dev
 ```
 
-The app runs on http://localhost:3000 by default.
+Frontend runs on:
 
-## Docker
+```txt
+http://localhost:3000
+```
 
-Build and run both services with Docker Compose:
+---
+
+# Docker Setup
+
+Build and start everything:
 
 ```bash
 docker compose up --build
 ```
 
-Stop and remove containers:
+Stop containers:
 
 ```bash
 docker compose down
 ```
 
-Ports:
+Services:
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:4000
+- Frontend → http://localhost:3000
+- Backend → http://localhost:4000
+- PostgreSQL → localhost:5432
 
-## Environment Variables
+Docker volumes are used for:
+- PostgreSQL persistence
+- uploaded file persistence
 
-### backend/.env
+---
 
-```bash
-DATABASE_URL="file:./dev.db"
+# Auth Flow
+
+Authentication uses:
+- JWT
+- Passport.js strategies
+- NestJS guards
+- bcrypt password hashing
+- httpOnly cookies
+
+Flow:
+
+1. User signs up or logs in
+2. Backend validates credentials
+3. JWT is set in a secure httpOnly cookie
+4. Frontend sends requests with `credentials: "include"`
+5. JwtAuthGuard validates the cookie on protected routes
+6. Authenticated user injected into request automatically
+
+Passwords are securely hashed using bcrypt before storage.
+
+## Session Behavior
+
+- Frontend calls `GET /auth/me` on load to validate the session.
+- Invalid/expired sessions clear auth state and redirect to login.
+- Logout clears the auth cookie and broadcasts a cross-tab logout signal.
+
+## Rate Limiting
+
+- `POST /auth/login` and `POST /auth/signup`
+- 5 requests per minute per IP
+
+## Security Notes
+
+- JWTs are stored only in httpOnly cookies (no localStorage persistence).
+- CORS is restricted to configured origins and supports credentials.
+- File uploads enforce MIME type and size limits.
+
+---
+
+# User Roles & Permissions
+
+## ADMIN
+Can:
+- create/edit/delete issues
+- assign issues
+- resolve/update issues
+- create/edit/delete comments
+- delete ANY comment
+- access all issue actions
+
+---
+
+## DEVELOPER
+Can:
+- create issues
+- update issue status
+- assign issues to themselves
+- create comments
+- edit/delete OWN comments
+
+Cannot:
+- delete issues
+- delete others comments
+
+---
+
+## VIEWER
+Can:
+- view issues
+- view comments
+- view activity logs
+
+Cannot:
+- create/edit/delete anything
+
+---
+
+# Seed User Credentials
+
+Seeded users are created automatically.
+
+| Role | Email | Password |
+|---|---|---|
+| ADMIN | minahil@example.com | password-minahil |
+| DEVELOPER | aisha@example.com | password-aisha |
+| DEVELOPER | omar@example.com | password-omar |
+| DEVELOPER | zara@example.com | password-zara |
+| DEVELOPER | ibrahim@example.com | password-ibrahim |
+
+---
+
+# API Endpoints
+
+Base URL:
+
+```txt
+http://localhost:4000
 ```
 
-### frontend/.env.local
+---
 
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
-```
+## Auth
 
-## API Endpoints
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /auth/signup | Create account |
+| POST | /auth/login | Login + JWT |
+| POST | /auth/logout | Logout + clear cookie |
+| GET | /auth/me | Get current user |
 
-Base URL: http://localhost:4000
+---
 
-- GET /issues - List issues with filters, pagination, and sorting
-- GET /issues/summary - Summary counts for dashboard cards
-- GET /issues/:id - Get a single issue
-- POST /issues - Create an issue
-- PATCH /issues/:id - Update an issue
-- DELETE /issues/:id - Remove an issue
+## Issues
 
-### Query Parameters
+| Method | Endpoint |
+|---|---|
+| GET | /issues |
+| GET | /issues/summary |
+| GET | /issues/:id |
+| POST | /issues |
+| PATCH | /issues/:id |
+| DELETE | /issues/:id |
+
+Supports:
+- pagination
+- sorting
+- search
+- filters
+- My Issues
+- Unassigned Issues
+
+---
+
+## Comments
+
+| Method | Endpoint |
+|---|---|
+| GET | /comments/issue/:issueId |
+| POST | /comments |
+| PATCH | /comments/:id |
+| DELETE | /comments/:id |
+
+---
+
+## Attachments
+
+| Method | Endpoint |
+|---|---|
+| POST | /attachments/upload |
+| GET | /attachments/:id/download |
+
+---
+
+# Query Parameters
+
+Supported issue query params:
 
 - search
-- status (OPEN, IN_PROGRESS, RESOLVED, CLOSED)
-- priority (LOW, MEDIUM, HIGH, CRITICAL)
+- status
+- priority
 - category
-- assignee
-- page (default 1)
-- limit (default 10, max 100)
-- sortBy (createdAt, updatedAt, priority)
-- sortOrder (asc, desc)
+- assigneeId
+- myIssues
+- unassigned
+- page
+- limit
+- sortBy
+- sortOrder
 
+---
 
-## Default seeded accounts
+# Implemented Features
 
-The backend seed script creates sample users and issues when the database is empty. Seeded user emails follow the pattern <name>@example.com and their passwords are `password-<name>` (all lowercase). Example seeded accounts:
+- JWT authentication
+- RBAC authorization
+- relational issue assignments
+- comments system
+- activity logs
+- realtime websocket notifications
+- file attachments
+- Dockerized setup
+- E2E backend tests
+- GitHub Actions CI
+- pagination/search/filter/sorting
+- protected frontend routes
+- role-aware UI
 
-- **Admin**: minahil@example.com / password-minahil
-- **Developer**: aisha@example.com / password-aisha
-- **Developer**: omar@example.com / password-omar
-- **Developer**: zara@example.com / password-zara
-- **Developer**: ibrahim@example.com / password-ibrahim
+---
 
-You can see the seeding logic in [backend/prisma/seed.cjs](backend/prisma/seed.cjs#L1-L40).
+# Testing
 
-Use these accounts to log in via the API or in the frontend during development.
-
-## Auth API examples
-
-Sign up (creates a Viewer role by default):
-
-```bash
-curl -X POST http://localhost:4000/auth/signup \
-	-H "Content-Type: application/json" \
-	-d '{"email":"newuser@example.com","password":"securepass","name":"New User"}'
-```
-
-Log in (returns `user` and `accessToken`):
-
-```bash
-curl -X POST http://localhost:4000/auth/login \
-	-H "Content-Type: application/json" \
-	-d '{"email":"minahil@example.com","password":"password-minahil"}'
-```
-
-Example response:
-
-```json
-{
-	"user": {
-		"id": 1,
-		"email": "minahil@example.com",
-		"name": "Minahil",
-		"role": "ADMIN",
-		"createdAt": "...",
-		"updatedAt": "..."
-	},
-	"accessToken": "<JWT_TOKEN>"
-}
-```
-
-Use the token to call authenticated endpoints (replace <JWT_TOKEN> with the token from login):
+Run backend E2E tests:
 
 ```bash
-curl http://localhost:4000/auth/me \
-	-H "Authorization: Bearer <JWT_TOKEN>"
+npm run test:e2e
 ```
 
-## Implemented features
+Tests include:
+- auth flow
+- JWT protection
+- RBAC permissions
+- ownership validation
 
-- Authentication: signup, login, JWT-based `Authorization: Bearer` tokens, and `GET /auth/me`.
-- Role-based permissions: `ADMIN`, `DEVELOPER`, and `VIEWER` roles with different update rights.
-- Issues API: create, list (filters, search, pagination, sorting), get by id (includes comments & activity), update (role-aware), delete.
-- Summary endpoint: `GET /issues/summary` for dashboard cards.
-- Seed data: sample users and 20 sample issues created by the seed script (see [backend/prisma/seed.cjs](backend/prisma/seed.cjs#L1-L200)).
-- Frontend: Next.js App Router with components for listing, creating, filtering, and editing issues.
+---
 
-If you'd like, I can also add example Postman collection or update the frontend README with how to use the seeded accounts in the UI.
+# GitHub Actions CI
+
+CI automatically runs on:
+- push
+- pull request
+
+Pipeline includes:
+- dependency install
+- Prisma migrations
+- linting
+- E2E tests
+- frontend/backend builds
+
+---
+
+# Assumptions / Tradeoffs
+
+- WebSockets were chosen over RabbitMQ to keep architecture lightweight and monolithic-friendly.
+- File uploads currently use local persistent storage for simplicity and Docker compatibility.
+- JWT access-token auth was prioritized over refresh-token rotation due to project scope/time constraints.
+- PostgreSQL replaced SQLite because relational auth/comments/activity structures fit PostgreSQL much better.
+- Focus was placed on practical full-stack architecture rather than overengineering microservices.
+
+---
+
+# Optional Features Implemented
+
+- realtime websocket notifications
+- file attachments
+- E2E/integration testing
+- Postman collection export
+- GitHub Actions CI pipeline
+
+---
 
 ### Made in collaboration with Copilot
-

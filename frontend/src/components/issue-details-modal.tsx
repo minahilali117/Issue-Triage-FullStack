@@ -19,11 +19,11 @@ import {
 import { Comment } from '@/types/issue';
 import { Button, Input } from './ui';
 import LoadingState from './loading-state';
+import { appToast } from '@/lib/toast';
 
 interface IssueDetailsModalProps {
   issueId: number | null;
   onClose: () => void;
-  onNotify: (message: string) => void;
 }
 
 const allowedAttachmentTypes = new Set([
@@ -53,7 +53,6 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 export default function IssueDetailsModal({
   issueId,
   onClose,
-  onNotify,
 }: IssueDetailsModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -87,49 +86,48 @@ export default function IssueDetailsModal({
     mutationFn: (content: string) => createComment(issueId as number, content),
     onSuccess: () => {
       setNewComment('');
-      onNotify('Comment added.');
+      appToast.commentAdded();
       invalidateDetails();
     },
-    onError: (error) => onNotify(getErrorMessage(error, 'Could not add comment.')),
+    onError: (error) => appToast.error(getErrorMessage(error, 'Could not add comment.')),
   });
   const editCommentMutation = useMutation({
     mutationFn: (payload: { id: number; content: string }) =>
       updateComment(issueId as number, payload.id, payload.content),
     onSuccess: () => {
       setEditing(null);
-      onNotify('Comment updated.');
+      appToast.commentUpdated();
       invalidateDetails();
     },
-    onError: (error) =>
-      onNotify(getErrorMessage(error, 'Could not update comment.')),
+    onError: (error) => appToast.error(getErrorMessage(error, 'Could not update comment.')),
   });
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteComment(issueId as number, commentId),
     onSuccess: () => {
-      onNotify('Comment deleted.');
+      appToast.commentDeleted();
       invalidateDetails();
     },
-    onError: (error) =>
-      onNotify(getErrorMessage(error, 'Could not delete comment.')),
+    onError: (error) => appToast.error(getErrorMessage(error, 'Could not delete comment.')),
   });
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadAttachment(issueId as number, file),
     onSuccess: () => {
-      onNotify('Attachment uploaded.');
+      appToast.attachmentUploaded();
       invalidateDetails();
     },
     onError: (error) =>
-      onNotify(getErrorMessage(error, `Could not upload attachment. Use ${allowedAttachmentLabel}.`)),
+      appToast.attachmentUploadFailed(
+        getErrorMessage(error, `Could not upload attachment. Use ${allowedAttachmentLabel}.`),
+      ),
   });
   const deleteAttachmentMutation = useMutation({
     mutationFn: (attachmentId: number) =>
       deleteAttachment(issueId as number, attachmentId),
     onSuccess: () => {
-      onNotify('Attachment deleted.');
+      appToast.attachmentDeleted();
       invalidateDetails();
     },
-    onError: (error) =>
-      onNotify(getErrorMessage(error, 'Could not delete attachment.')),
+    onError: (error) => appToast.error(getErrorMessage(error, 'Could not delete attachment.')),
   });
 
   if (!issueId) return null;
@@ -259,9 +257,11 @@ export default function IssueDetailsModal({
                         const file = event.target.files?.[0];
                         if (file) {
                           if (!allowedAttachmentTypes.has(file.type)) {
-                            onNotify(`Unsupported file type. Please upload ${allowedAttachmentLabel}.`);
+                            appToast.warning(
+                              `Unsupported file type. Please upload ${allowedAttachmentLabel}.`,
+                            );
                           } else if (file.size > maxAttachmentSize) {
-                            onNotify('File is too large. Please upload a file up to 10 MB.');
+                            appToast.warning('File is too large. Please upload a file up to 10 MB.');
                           } else {
                             uploadMutation.mutate(file);
                           }
@@ -283,9 +283,9 @@ export default function IssueDetailsModal({
                         className="flex min-w-0 items-center gap-2 text-left hover:text-slate-950"
                         onClick={() => {
                           downloadAttachment(issueId, attachment.id, attachment.fileName)
-                            .then(() => onNotify('Attachment downloaded.'))
+                            .then(() => appToast.success('Attachment downloaded.'))
                             .catch((error: unknown) =>
-                              onNotify(getErrorMessage(error, 'Could not download attachment.')),
+                              appToast.attachmentDownloadFailed(getErrorMessage(error, 'Could not download attachment.')),
                             );
                         }}
                       >

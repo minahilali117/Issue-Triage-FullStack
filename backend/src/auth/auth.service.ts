@@ -7,9 +7,11 @@ import { JwtService } from '@nestjs/jwt';
 import { User, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
+import { AUTH_COOKIE_MAX_AGE_MS, AUTH_COOKIE_SECURE } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
 import { JwtPayload } from './auth.types';
+import type { CookieOptions } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -91,6 +93,16 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
+    };
+  }
+
+  getAuthCookieOptions(): CookieOptions {
+    return {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: AUTH_COOKIE_SECURE,
+      path: '/',
+      maxAge: AUTH_COOKIE_MAX_AGE_MS,
     };
   }
 

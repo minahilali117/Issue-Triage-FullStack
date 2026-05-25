@@ -13,7 +13,6 @@ import {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-const AUTH_STORAGE_KEY = 'triage_dashboard_auth';
 
 const buildQueryString = (query: IssueQuery) => {
   const params = new URLSearchParams();
@@ -30,31 +29,17 @@ const buildQueryString = (query: IssueQuery) => {
   return queryString ? `?${queryString}` : '';
 };
 
-const getStoredToken = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const session = JSON.parse(raw) as AuthResponse;
-    return session.accessToken;
-  } catch {
-    return null;
-  }
-};
-
 const buildHeaders = (extraHeaders?: HeadersInit) => {
-  const token = getStoredToken();
   return {
     ...(extraHeaders ?? {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
+
+const buildRequest = (options: RequestInit = {}): RequestInit => ({
+  ...options,
+  headers: buildHeaders(options.headers),
+  credentials: 'include',
+});
 
 export class ApiError extends Error {
   constructor(
@@ -65,6 +50,12 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
+
+const emitAuthInvalid = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('triage-auth-invalid'));
+  }
+};
 
 const readErrorMessage = async (response: Response, fallback: string) => {
   try {
@@ -81,6 +72,9 @@ const readErrorMessage = async (response: Response, fallback: string) => {
 
 const ensureOk = async (response: Response, fallback: string) => {
   if (!response.ok) {
+    if (response.status === 401) {
+      emitAuthInvalid();
+    }
     throw new ApiError(await readErrorMessage(response, fallback), response.status);
   }
 };
@@ -89,11 +83,14 @@ export const login = async (payload: {
   email: string;
   password: string;
 }): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/auth/login`,
+    buildRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
 
   await ensureOk(response, 'Failed to log in.');
 
@@ -105,22 +102,36 @@ export const signup = async (payload: {
   password: string;
   name?: string;
 }): Promise<AuthResponse> => {
-  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/auth/signup`,
+    buildRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
 
   await ensureOk(response, 'Failed to sign up.');
 
   return response.json();
 };
 
+export const logout = async (): Promise<void> => {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/logout`,
+    buildRequest({ method: 'POST' }),
+  );
+
+  await ensureOk(response, 'Failed to log out.');
+};
+
 export const fetchCurrentUser = async (): Promise<AuthResponse['user']> => {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/auth/me`,
+    buildRequest({
+      cache: 'no-store',
+    }),
+  );
 
   await ensureOk(response, 'Failed to load current user.');
 
@@ -128,10 +139,10 @@ export const fetchCurrentUser = async (): Promise<AuthResponse['user']> => {
 };
 
 export const fetchIssues = async (query: IssueQuery): Promise<IssueListResponse> => {
-  const response = await fetch(`${API_BASE_URL}/issues${buildQueryString(query)}`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues${buildQueryString(query)}`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load issues.');
 
@@ -139,10 +150,10 @@ export const fetchIssues = async (query: IssueQuery): Promise<IssueListResponse>
 };
 
 export const fetchIssue = async (id: number): Promise<Issue> => {
-  const response = await fetch(`${API_BASE_URL}/issues/${id}`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${id}`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load issue.');
 
@@ -150,10 +161,10 @@ export const fetchIssue = async (id: number): Promise<Issue> => {
 };
 
 export const fetchSummary = async (): Promise<IssueSummary> => {
-  const response = await fetch(`${API_BASE_URL}/issues/summary`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/summary`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load summary.');
 
@@ -161,11 +172,14 @@ export const fetchSummary = async (): Promise<IssueSummary> => {
 };
 
 export const createIssue = async (payload: IssueInput) => {
-  const response = await fetch(`${API_BASE_URL}/issues`, {
-    method: 'POST',
-    headers: buildHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues`,
+    buildRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
 
   await ensureOk(response, 'Failed to create issue.');
 
@@ -173,11 +187,14 @@ export const createIssue = async (payload: IssueInput) => {
 };
 
 export const updateIssue = async (id: number, payload: IssueUpdateInput) => {
-  const response = await fetch(`${API_BASE_URL}/issues/${id}`, {
-    method: 'PATCH',
-    headers: buildHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${id}`,
+    buildRequest({
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  );
 
   await ensureOk(response, 'Failed to update issue.');
 
@@ -185,19 +202,19 @@ export const updateIssue = async (id: number, payload: IssueUpdateInput) => {
 };
 
 export const deleteIssue = async (id: number) => {
-  const response = await fetch(`${API_BASE_URL}/issues/${id}`, {
-    method: 'DELETE',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${id}`,
+    buildRequest({ method: 'DELETE' }),
+  );
 
   await ensureOk(response, 'Failed to delete issue.');
 };
 
 export const fetchUsers = async (): Promise<IssueUser[]> => {
-  const response = await fetch(`${API_BASE_URL}/users`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/users`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load users.');
 
@@ -205,10 +222,10 @@ export const fetchUsers = async (): Promise<IssueUser[]> => {
 };
 
 export const fetchComments = async (issueId: number): Promise<Comment[]> => {
-  const response = await fetch(`${API_BASE_URL}/issues/${issueId}/comments`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${issueId}/comments`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load comments.');
 
@@ -216,11 +233,14 @@ export const fetchComments = async (issueId: number): Promise<Comment[]> => {
 };
 
 export const createComment = async (issueId: number, content: string) => {
-  const response = await fetch(`${API_BASE_URL}/issues/${issueId}/comments`, {
-    method: 'POST',
-    headers: buildHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ content }),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${issueId}/comments`,
+    buildRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    }),
+  );
 
   await ensureOk(response, 'Failed to add comment.');
 
@@ -234,11 +254,11 @@ export const updateComment = async (
 ) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/comments/${commentId}`,
-    {
+    buildRequest({
       method: 'PATCH',
-      headers: buildHeaders({ 'Content-Type': 'application/json' }),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
-    },
+    }),
   );
 
   await ensureOk(response, 'Failed to update comment.');
@@ -249,20 +269,17 @@ export const updateComment = async (
 export const deleteComment = async (issueId: number, commentId: number) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/comments/${commentId}`,
-    {
-      method: 'DELETE',
-      headers: buildHeaders(),
-    },
+    buildRequest({ method: 'DELETE' }),
   );
 
   await ensureOk(response, 'Failed to delete comment.');
 };
 
 export const fetchAttachments = async (issueId: number): Promise<Attachment[]> => {
-  const response = await fetch(`${API_BASE_URL}/issues/${issueId}/attachments`, {
-    cache: 'no-store',
-    headers: buildHeaders(),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/issues/${issueId}/attachments`,
+    buildRequest({ cache: 'no-store' }),
+  );
 
   await ensureOk(response, 'Failed to load attachments.');
 
@@ -275,8 +292,8 @@ export const uploadAttachment = async (issueId: number, file: File) => {
 
   const response = await fetch(`${API_BASE_URL}/issues/${issueId}/attachments`, {
     method: 'POST',
-    headers: buildHeaders(),
     body: formData,
+    credentials: 'include',
   });
 
   await ensureOk(response, 'Failed to upload attachment.');
@@ -291,9 +308,7 @@ export const downloadAttachment = async (
 ) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/attachments/${attachmentId}/download`,
-    {
-      headers: buildHeaders(),
-    },
+    buildRequest(),
   );
 
   await ensureOk(response, 'Failed to download attachment.');
@@ -312,10 +327,7 @@ export const downloadAttachment = async (
 export const deleteAttachment = async (issueId: number, attachmentId: number) => {
   const response = await fetch(
     `${API_BASE_URL}/issues/${issueId}/attachments/${attachmentId}`,
-    {
-      method: 'DELETE',
-      headers: buildHeaders(),
-    },
+    buildRequest({ method: 'DELETE' }),
   );
 
   await ensureOk(response, 'Failed to delete attachment.');

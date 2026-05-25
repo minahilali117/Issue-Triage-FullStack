@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CommentsModule } from './comments/comments.module';
@@ -11,6 +12,9 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     PrismaModule,
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60, limit: 5 }],
+    }),
     ActivityLogModule,
     AuthModule,
     IssuesModule,

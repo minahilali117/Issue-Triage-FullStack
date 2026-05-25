@@ -33,6 +33,7 @@ import IssueDetailsModal from './issue-details-modal';
 import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
 import { Button } from './ui';
+import { appToast, describeIssueSaveToast } from '@/lib/toast';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof ApiError || error instanceof Error ? error.message : fallback;
@@ -55,7 +56,6 @@ export default function Dashboard() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const issuesQuery = useQuery({
     queryKey: ['issues', query],
@@ -76,18 +76,21 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const socket = io(apiBaseUrl, { transports: ['websocket', 'polling'] });
+    const socket = io(apiBaseUrl, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+    });
     socket.on('issue.updated', () => {
       refreshDashboard();
-      setNotice('Issue updated in realtime.');
+      appToast.realtimeIssueUpdated();
     });
     socket.on('issue.assigned', () => {
       refreshDashboard();
-      setNotice('Issue assignment changed.');
+      appToast.realtimeIssueAssigned();
     });
     socket.on('comment.added', (payload: { issueId?: number }) => {
       refreshDashboard();
-      setNotice('New comment added.');
+      appToast.realtimeCommentAdded();
       if (payload.issueId) {
         void queryClient.invalidateQueries({ queryKey: ['issue', payload.issueId] });
         void queryClient.invalidateQueries({ queryKey: ['comments', payload.issueId] });
@@ -200,29 +203,41 @@ export default function Dashboard() {
   }, [meta]);
 
   const saveMutation = useMutation({
-    mutationFn: (payload: IssueInput) =>
-      editingIssue ? updateIssue(editingIssue.id, payload) : createIssue(payload),
-    onSuccess: () => {
+    mutationFn: async (payload: IssueInput) => {
+      if (editingIssue) {
+        await updateIssue(editingIssue.id, payload);
+      } else {
+        await createIssue(payload);
+      }
+
+      return payload;
+    },
+    onSuccess: (_data, payload) => {
       setEditingIssue(null);
       setIsFormOpen(false);
-      setNotice(editingIssue ? 'Issue updated.' : 'Issue created.');
+      if (editingIssue) {
+        const result = describeIssueSaveToast(editingIssue, payload);
+        appToast[result.variant](result.message);
+      } else {
+        appToast.issueCreated();
+      }
       refreshDashboard();
     },
     onError: (error) => {
-      setNotice(getErrorMessage(error, 'Could not save issue.'));
+      appToast.error(getErrorMessage(error, 'Could not save issue.'));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteIssue(id),
     onSuccess: () => {
-      setNotice('Issue deleted.');
+      appToast.issueDeleted();
       refreshDashboard();
     },
     onError: (error) => {
       const role = user?.role ?? 'unknown role';
       const email = user?.email ?? 'unknown user';
-      setNotice(
+      appToast.error(
         `${getErrorMessage(error, 'Could not delete issue.')} Signed in as ${email} (${role}). Only ADMIN can delete issues.`,
       );
     },
@@ -269,7 +284,14 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button type="button" variant="outline" onClick={signOut}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              await signOut();
+              appToast.authLogoutSuccess();
+            }}
+          >
             Logout
           </Button>
           {canCreateIssues ? (
@@ -286,18 +308,6 @@ export default function Dashboard() {
         </div>
       </div>
       <SummaryCards summary={summaryQuery.data ?? null} isLoading={isLoading} />
-      {notice ? (
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          <span>{notice}</span>
-          <button
-            type="button"
-            className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500"
-            onClick={() => setNotice(null)}
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
       <FilterBar
         initial={query}
         onApply={updateQuery}
@@ -369,7 +379,6 @@ export default function Dashboard() {
       <IssueDetailsModal
         issueId={selectedIssueId}
         onClose={() => updateSelectedIssue(null)}
-        onNotify={setNotice}
       />
     </div>
   );

@@ -1,86 +1,160 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AuthResponse, AuthUser } from '@/types/auth';
-import { fetchCurrentUser } from '@/lib/api';
+import { fetchCurrentUser, logout } from '@/lib/api';
+import { appToast } from '@/lib/toast';
 
-const AUTH_STORAGE_KEY = 'triage_dashboard_auth';
+const AUTH_CHANNEL_NAME = 'triage_dashboard_auth';
+const AUTH_EVENT_KEY = 'triage_dashboard_auth_event';
+type AuthEvent = { type: 'login' | 'logout'; ts: number };
 
 type AuthContextValue = {
   user: AuthUser | null;
-  accessToken: string | null;
   isReady: boolean;
   isAuthenticated: boolean;
   signIn: (session: AuthResponse) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const readStoredSession = (): AuthResponse | null => {
+const broadcastAuthEvent = (event: AuthEvent) => {
   if (typeof window === 'undefined') {
-    return null;
+    return;
   }
 
-  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) {
-    return null;
+  if ('BroadcastChannel' in window) {
+    const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
+    channel.postMessage(event);
+    channel.close();
   }
 
   try {
-    return JSON.parse(raw) as AuthResponse;
+    window.localStorage.setItem(AUTH_EVENT_KEY, JSON.stringify(event));
+    window.localStorage.removeItem(AUTH_EVENT_KEY);
   } catch {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
+    // Ignore storage failures (private mode, quota issues).
   }
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthResponse | null>(null);
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    const storedSession = readStoredSession();
-    if (storedSession) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSession(storedSession);
-      void fetchCurrentUser()
-        .then((user) => {
-          const syncedSession = { ...storedSession, user };
-          setSession(syncedSession);
-          window.localStorage.setItem(
-            AUTH_STORAGE_KEY,
-            JSON.stringify(syncedSession),
-          );
-        })
-        .catch(() => {
-          setSession(null);
-          window.localStorage.removeItem(AUTH_STORAGE_KEY);
-        });
+  const clearSession = useCallback(
+    (shouldBroadcast: boolean) => {
+      setUser(null);
+      queryClient.clear();
+      if (shouldBroadcast) {
+        broadcastAuthEvent({ type: 'logout', ts: Date.now() });
+      }
+    },
+    [queryClient],
+  );
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const currentUser = await fetchCurrentUser();
+      setUser(currentUser);
+    } catch {
+      setUser(null);
+    } finally {
+      setIsReady(true);
     }
-    setIsReady(true);
   }, []);
 
-  const signIn = (session: AuthResponse) => {
-    setSession(session);
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshSession();
 
-  const signOut = () => {
-    setSession(null);
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-  };
+    const handleAuthEvent = (event: AuthEvent) => {
+      if (event.type === 'logout') {
+        clearSession(false);
+      }
+
+      if (event.type === 'login') {
+        void refreshSession();
+      }
+    };
+
+    const channel =
+      typeof window !== 'undefined' && 'BroadcastChannel' in window
+        ? new BroadcastChannel(AUTH_CHANNEL_NAME)
+        : null;
+
+    if (channel) {
+      channel.addEventListener('message', (message) => {
+        const payload = message.data as AuthEvent | undefined;
+        if (payload?.type) {
+          handleAuthEvent(payload);
+        }
+      });
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== AUTH_EVENT_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue) as AuthEvent;
+        if (payload?.type) {
+          handleAuthEvent(payload);
+        }
+      } catch {
+        // Ignore malformed events.
+      }
+    };
+
+    const handleInvalid = () => {
+      clearSession(true);
+      appToast.authUnauthorized();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('triage-auth-invalid', handleInvalid);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('triage-auth-invalid', handleInvalid);
+    };
+  }, [clearSession, queryClient, refreshSession]);
+
+  const signIn = useCallback((session: AuthResponse) => {
+    setUser(session.user);
+    broadcastAuthEvent({ type: 'login', ts: Date.now() });
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await logout();
+    } catch {
+      // The session cookie might already be cleared.
+    }
+
+    clearSession(true);
+  }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: session?.user ?? null,
-      accessToken: session?.accessToken ?? null,
       isReady,
-      isAuthenticated: Boolean(session?.user && session?.accessToken),
+      user,
+      isAuthenticated: Boolean(user),
       signIn,
       signOut,
     }),
-    [isReady, session],
+    [isReady, signIn, signOut, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

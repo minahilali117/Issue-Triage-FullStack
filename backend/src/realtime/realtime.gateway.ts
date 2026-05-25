@@ -5,10 +5,11 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { getAllowedOrigins } from '../config/cors';
 
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: true },
+  cors: { origin: getAllowedOrigins(), credentials: true },
 })
 export class RealtimeGateway implements OnGatewayConnection {
   @WebSocketServer()

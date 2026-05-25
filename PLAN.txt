@@ -553,14 +553,80 @@ SECOND ITERATION ->
 - advanced tests
 
 --------------------------------------------------
+COMPLETED REQUIRED FEATURES
+--------------------------------
 
-IMPORTANT ENGINEERING PRINCIPLES ->
+AUTH + SECURITY
+- signup/login/logout
+- persistent login after refresh
+- JWT auth using Passport.js
+- bcrypt password hashing
+- protected dashboard routes
 
-- clean architecture > overengineering
-- services handle business logic
-- controllers stay thin
-- reusable components
-- proper separation of concerns
-- relational DB design
-- secure auth implementation
-- scalable but practical decisions
+RBAC
+- ADMIN / DEVELOPER / VIEWER roles
+- RolesGuard + @Roles decorator
+- proper permission restrictions
+
+ISSUES
+- relational user assignment
+- assigneeId + createdById
+- My Issues filter
+- Unassigned Issues filter
+- registered user assignment dropdown
+
+COMMENTS
+- create/edit/delete comments
+- ownership validation
+- admin can delete any comment
+- author info included
+
+ACTIVITY LOGS
+- issue created
+- status changed
+- priority changed
+- assignee changed
+- comment added/deleted
+- actor + timestamp tracking
+- frontend activity timeline
+
+SEED DATA
+- admin/developer/viewer seed users
+- sample issues/comments/activity logs
+
+README
+- auth flow
+- RBAC permissions
+- seed creds
+- API endpoints
+- Docker setup
+- env vars
+- migrations/setup instructions
+
+
+OPTIONAL FEATURES COMPLETED
+--------------------------------
+
+- websocket realtime updates
+- realtime dashboard notifications
+- file attachments using Multer
+- Docker-persistent uploads
+- E2E backend tests
+- Postman collection export
+
+
+EXTRA IMPROVEMENTS I DID
+--------------------------------
+
+- migrated SQLite -> PostgreSQL
+- Prisma relational redesign
+- GitHub Actions CI pipeline
+- TanStack Query
+- React Hook Form
+- Zod validation
+- shadcn/ui
+- protected frontend routing
+- role-aware UI/buttons
+- modular reusable architecture
+- thin controllers + service-layer business logic
+- Dockerized setup
