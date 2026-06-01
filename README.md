@@ -74,10 +74,16 @@ npx prisma migrate dev
 npm run db:seed
 ```
 
-Start backend:
+Start backend for dev env:
 
 ```bash
 npm run start:dev
+```
+
+Start backend for testing a production build:
+```bash
+npm run build
+npm run start
 ```
 
 Backend runs on:
@@ -101,10 +107,16 @@ Create `.env.local`:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
 ```
 
-Start frontend:
+Start frontend for dev:
 
 ```bash
 npm run dev
+```
+
+Start frontend for testing a production build:
+```bash
+npm run build
+npm run start
 ```
 
 Frontend runs on:
@@ -112,6 +124,12 @@ Frontend runs on:
 ```txt
 http://localhost:3000
 ```
+
+## Frontend App Router
+
+- Protected dashboard routes live under `src/app/(protected)` and share the app shell there.
+- `page.tsx` files stay thin; interactive logic lives in client components under `src/components/`.
+- Lightweight `loading.tsx`, `error.tsx`, and `not-found.tsx` files provide route-level UX without changing feature behavior.
 
 ---
 
@@ -166,6 +184,8 @@ Passwords are securely hashed using bcrypt before storage.
 - Frontend calls `GET /auth/me` on load to validate the session.
 - Invalid/expired sessions clear auth state and redirect to login.
 - Logout clears the auth cookie and broadcasts a cross-tab logout signal.
+- JWTs are stored only in httpOnly cookies; the frontend never persists the token in localStorage.
+- Role data comes from the authenticated session/user payload returned by the backend.
 
 ## Rate Limiting
 

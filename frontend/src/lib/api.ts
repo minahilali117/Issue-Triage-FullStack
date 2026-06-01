@@ -1,5 +1,6 @@
 import type { AuthResponse } from '@/types/auth';
 import {
+  ActivityLog,
   Attachment,
   Comment,
   Issue,
@@ -239,6 +240,17 @@ export const fetchSummary = async (): Promise<IssueSummary> => {
   );
 
   await ensureOk(response, 'Failed to load summary.');
+
+  return response.json();
+};
+
+export const fetchRecentActivity = async (limit = 8): Promise<ActivityLog[]> => {
+  const response = await fetch(
+    `${API_BASE_URL}/activity-log/recent?limit=${limit}`,
+    buildRequest({ cache: 'no-store' }),
+  );
+
+  await ensureOk(response, 'Failed to load recent activity.');
 
   return response.json();
 };

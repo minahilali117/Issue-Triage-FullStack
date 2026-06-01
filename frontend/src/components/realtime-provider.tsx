@@ -32,7 +32,7 @@ const updateNotificationListCache = (
 };
 
 export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isReady } = useAuth();
+  const { user, isAuthenticated, isReady } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -45,25 +45,31 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
       withCredentials: true,
     });
 
-    socket.on('issue.updated', () => {
+    socket.on('issue.updated', (payload: { actorId?: number | null }) => {
       void queryClient.invalidateQueries({ queryKey: ['issues'] });
       void queryClient.invalidateQueries({ queryKey: ['issue-summary'] });
-      appToast.realtimeIssueUpdated();
+      if (payload.actorId !== user?.id) {
+        appToast.realtimeIssueUpdated();
+      }
     });
 
-    socket.on('issue.assigned', () => {
+    socket.on('issue.assigned', (payload: { actorId?: number | null }) => {
       void queryClient.invalidateQueries({ queryKey: ['issues'] });
       void queryClient.invalidateQueries({ queryKey: ['issue-summary'] });
-      appToast.realtimeIssueAssigned();
+      if (payload.actorId !== user?.id) {
+        appToast.realtimeIssueAssigned();
+      }
     });
 
-    socket.on('comment.added', (payload: { issueId?: number }) => {
+    socket.on('comment.added', (payload: { issueId?: number; actorId?: number | null }) => {
       void queryClient.invalidateQueries({ queryKey: ['issues'] });
       if (payload.issueId) {
         void queryClient.invalidateQueries({ queryKey: ['issue', payload.issueId] });
         void queryClient.invalidateQueries({ queryKey: ['comments', payload.issueId] });
       }
-      appToast.realtimeCommentAdded();
+      if (payload.actorId !== user?.id) {
+        appToast.realtimeCommentAdded();
+      }
     });
 
     socket.on('notification.created', (payload: NotificationCreatedPayload) => {
@@ -108,7 +114,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
     return () => {
       socket.disconnect();
     };
-  }, [isAuthenticated, isReady, queryClient]);
+  }, [isAuthenticated, isReady, queryClient, user?.id]);
 
   return children;
 }

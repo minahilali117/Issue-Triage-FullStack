@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
+import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,6 +20,8 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import { fetchRecentActivity } from '@/lib/api';
+import type { ActivityLog } from '@/types/issue';
 import NotificationBell from './notification-bell';
 
 type AppShellProps = {
@@ -56,20 +59,26 @@ const updateQueryString = (
 
 export default function AppShell({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    try {
-      return window.localStorage.getItem('triage_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(window.localStorage.getItem('triage_sidebar_collapsed') === 'true');
+    } catch {
+      // Ignore storage failures.
+    }
+  }, []);
+
+  const recentActivityQuery = useQuery({
+    queryKey: ['recent-activity'],
+    queryFn: () => fetchRecentActivity(6),
+    enabled: activityOpen,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     try {
@@ -121,11 +130,10 @@ export default function AppShell({ children }: AppShellProps) {
     },
     {
       label: 'Activity',
-      description: 'Jump to the recent activity area',
+      description: 'Open the compact activity log',
       icon: <Activity className="h-4 w-4" />,
       onSelect: () => {
-        const target = document.getElementById('issues') ?? document.documentElement;
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setActivityOpen(true);
         setMobileOpen(false);
       },
     },
@@ -141,8 +149,103 @@ export default function AppShell({ children }: AppShellProps) {
     },
   ], [pathname, router, searchParams]);
 
+  const formatActivityTime = (value: string) =>
+    new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+
+  const describeActivity = (activity: ActivityLog) => {
+    if (activity.message) {
+      return activity.message;
+    }
+
+    switch (activity.type) {
+      case 'ISSUE_CREATED':
+        return 'created an issue';
+      case 'STATUS_CHANGED':
+        return `changed status to ${activity.newValue ?? 'unknown'}`;
+      case 'PRIORITY_CHANGED':
+        return `changed priority to ${activity.newValue ?? 'unknown'}`;
+      case 'ASSIGNEE_CHANGED':
+        return `changed assignee to ${activity.newValue ?? 'Unassigned'}`;
+      case 'COMMENT_ADDED':
+        return 'added a comment';
+      case 'COMMENT_DELETED':
+        return 'deleted a comment';
+      default:
+        return 'updated activity';
+    }
+  };
+
   return (
     <div className="min-h-screen text-slate-900 dark:text-slate-100">
+      <Dialog.Root open={activityOpen} onOpenChange={setActivityOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-60 bg-slate-950/45 backdrop-blur-[2px]" />
+          <Dialog.Content asChild>
+            <motion.aside
+              className="fixed right-0 top-0 z-61 flex h-full w-[min(92vw,24rem)] flex-col border-l border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950"
+              initial={{ x: 24 }}
+              animate={{ x: 0 }}
+              exit={{ x: 24 }}
+              transition={{ duration: 0.18 }}
+            >
+              <Dialog.Title className="sr-only">Recent activity log</Dialog.Title>
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">Activity log</p>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Recent activity</h2>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Compact workspace changes</p>
+                </div>
+                <Dialog.Close asChild>
+                  <button type="button" className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Close activity log">
+                    <X className="h-4 w-4" />
+                  </button>
+                </Dialog.Close>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <div className="grid gap-3">
+                  {recentActivityQuery.isLoading ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
+                      Loading activity...
+                    </div>
+                  ) : (recentActivityQuery.data?.length ?? 0) === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                      No recent activity yet.
+                    </div>
+                  ) : (
+                    recentActivityQuery.data?.map((activity) => (
+                      <div key={activity.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-slate-950 dark:text-white">
+                                  {activity.user?.name ?? activity.user?.email ?? 'Someone'} {describeActivity(activity)}
+                                </p>
+                                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                                  {activity.issue ? `${activity.issue.title}` : 'Workspace activity'}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                                {formatActivityTime(activity.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.aside>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
       <div className="mx-auto grid min-h-screen w-full max-w-400 grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)]">
         <motion.aside
           initial={false}
@@ -194,10 +297,7 @@ export default function AppShell({ children }: AppShellProps) {
 
             {!sidebarCollapsed ? (
               <div className="mt-auto rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <Sparkles className="h-4 w-4" />
-                  Premium workflow
-                </div>
+                
                 <p className="mt-2 leading-6">Keyboard-first navigation, realtime updates, and compact controls for triage speed.</p>
               </div>
             ) : null}
@@ -228,6 +328,7 @@ export default function AppShell({ children }: AppShellProps) {
                             exit={{ x: -24 }}
                             transition={{ duration: 0.18 }}
                           >
+                            <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">Issue triage</p>

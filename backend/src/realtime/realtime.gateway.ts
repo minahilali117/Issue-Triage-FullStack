@@ -55,8 +55,8 @@ export class RealtimeGateway implements OnGatewayConnection {
     client.emit('connected', { ok: true });
   }
 
-  emitIssueUpdated(issue: unknown) {
-    this.server?.emit('issue.updated', issue);
+  emitIssueUpdated(payload: unknown) {
+    this.server?.emit('issue.updated', payload);
   }
 
   emitIssueAssigned(payload: unknown) {

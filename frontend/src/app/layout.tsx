@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
-import { AuthProvider } from '@/components/auth-provider';
 import AppToaster from '@/components/app-toaster';
-import RealtimeProvider from '@/components/realtime-provider';
-import QueryProvider from '@/components/query-provider';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
@@ -27,12 +24,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <QueryProvider>
-          <AuthProvider>
-            <RealtimeProvider>{children}</RealtimeProvider>
-          </AuthProvider>
-          <AppToaster />
-        </QueryProvider>
+        {children}
+        <AppToaster />
       </body>
     </html>
   );

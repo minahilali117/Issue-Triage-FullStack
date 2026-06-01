@@ -58,7 +58,7 @@ export class IssuesService {
     await this.notificationsService.notifyIssueCreated(issue, actor);
 
     const shapedIssue = this.shapeIssue(issue);
-    this.realtimeGateway.emitIssueUpdated(shapedIssue);
+    this.realtimeGateway.emitIssueUpdated({ actorId: actor.userId, issue: shapedIssue });
     return shapedIssue;
   }
 
@@ -265,12 +265,12 @@ export class IssuesService {
     await this.notificationsService.notifyIssueUpdated(current, issue, actor);
 
     const shapedIssue = this.shapeIssue(issue);
-    this.realtimeGateway.emitIssueUpdated(shapedIssue);
+    this.realtimeGateway.emitIssueUpdated({ actorId: actor.userId, issue: shapedIssue });
     if (
       data.assignee !== undefined &&
       current.assigneeId !== issue.assigneeId
     ) {
-      this.realtimeGateway.emitIssueAssigned(shapedIssue);
+      this.realtimeGateway.emitIssueAssigned({ actorId: actor.userId, issue: shapedIssue });
     }
     return shapedIssue;
   }

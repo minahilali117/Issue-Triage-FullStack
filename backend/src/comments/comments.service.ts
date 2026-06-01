@@ -64,7 +64,7 @@ export class CommentsService {
       mentionIds: dto.mentionIds,
     });
 
-    this.realtimeGateway.emitCommentAdded({ issueId, comment });
+    this.realtimeGateway.emitCommentAdded({ issueId, comment, actorId: actor.userId });
 
     return comment;
   }

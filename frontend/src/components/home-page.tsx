@@ -1,17 +1,11 @@
-"use client";
+'use client';
 
-import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
-import AppShell from '@/components/app-shell';
+import Dashboard from '@/components/dashboard';
 
-const Dashboard = dynamic(() => import('@/components/dashboard'), {
-  ssr: false,
-  loading: () => <div>Loading dashboard...</div>,
-});
-
-export default function Home() {
+export default function HomePage() {
   const router = useRouter();
   const { isAuthenticated, isReady } = useAuth();
 
@@ -30,7 +24,7 @@ export default function Home() {
   }
 
   return (
-    <AppShell>
+    <>
       <section className="grid gap-3 rounded-3xl border border-slate-200 bg-white/75 px-5 py-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-white/5 sm:px-6">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Today at a glance</p>
         <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
@@ -41,9 +35,10 @@ export default function Home() {
           and a calm, responsive workflow that feels alive without getting loud.
         </p>
       </section>
+
       <div className="mt-8">
         <Dashboard />
       </div>
-    </AppShell>
+    </>
   );
 }

@@ -47,6 +47,10 @@ export interface ActivityLog {
   oldValue: string | null;
   newValue: string | null;
   user: IssueUser | null;
+  issue?: {
+    id: number;
+    title: string;
+  } | null;
   createdAt: string;
 }
 

@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma.module';
+import { ActivityLogController } from './activity-log.controller';
 import { ActivityLogService } from './activity-log.service';
 
 @Module({
   imports: [PrismaModule],
+  controllers: [ActivityLogController],
   providers: [ActivityLogService],
   exports: [ActivityLogService],
 })
