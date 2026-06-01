@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +16,6 @@ import {
   ListFilter,
   Menu,
   Settings2,
-  Sparkles,
   UserRound,
   X,
 } from 'lucide-react';
@@ -57,21 +56,73 @@ const updateQueryString = (
   return queryString ? `${pathname}?${queryString}` : pathname;
 };
 
+const SIDEBAR_COLLAPSED_KEY = 'triage_sidebar_collapsed';
+const SIDEBAR_COLLAPSED_EVENT = 'triage-sidebar-collapsed-change';
+
+const readSidebarCollapsed = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const sidebarCollapsedListeners = new Set<() => void>();
+
+const notifySidebarCollapsedListeners = () => {
+  sidebarCollapsedListeners.forEach((listener) => listener());
+};
+
+const setSidebarCollapsedPreference = (value: boolean) => {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+  } catch {
+    // Ignore storage failures.
+  }
+
+  window.dispatchEvent(new Event(SIDEBAR_COLLAPSED_EVENT));
+  notifySidebarCollapsedListeners();
+};
+
+const subscribeSidebarCollapsed = (listener: () => void) => {
+  sidebarCollapsedListeners.add(listener);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === SIDEBAR_COLLAPSED_KEY) {
+      listener();
+    }
+  };
+
+  const handleCustomEvent = () => {
+    listener();
+  };
+
+  window.addEventListener('storage', handleStorage);
+  window.addEventListener(SIDEBAR_COLLAPSED_EVENT, handleCustomEvent);
+
+  return () => {
+    sidebarCollapsedListeners.delete(listener);
+    window.removeEventListener('storage', handleStorage);
+    window.removeEventListener(SIDEBAR_COLLAPSED_EVENT, handleCustomEvent);
+  };
+};
+
 export default function AppShell({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    try {
-      setSidebarCollapsed(window.localStorage.getItem('triage_sidebar_collapsed') === 'true');
-    } catch {
-      // Ignore storage failures.
-    }
-  }, []);
+  const sidebarCollapsed = useSyncExternalStore(
+    subscribeSidebarCollapsed,
+    readSidebarCollapsed,
+    () => false,
+  );
 
   const recentActivityQuery = useQuery({
     queryKey: ['recent-activity'],
@@ -81,11 +132,7 @@ export default function AppShell({ children }: AppShellProps) {
   });
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem('triage_sidebar_collapsed', String(sidebarCollapsed));
-    } catch {
-      // Ignore storage failures.
-    }
+    setSidebarCollapsedPreference(sidebarCollapsed);
   }, [sidebarCollapsed]);
 
   const navActions = useMemo<NavAction[]>(() => [
@@ -360,7 +407,7 @@ export default function AppShell({ children }: AppShellProps) {
 
                 <button
                   type="button"
-                  onClick={() => setSidebarCollapsed((current) => !current)}
+                  onClick={() => setSidebarCollapsedPreference(!sidebarCollapsed)}
                   className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 lg:inline-flex"
                   aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 >
