@@ -43,7 +43,7 @@ export class IssuesController {
     return this.issuesService.list(query, user);
   }
 
-  @Get('summary')
+  @Get('summary2')
   summary() {
     return this.issuesService.summary();
   }
