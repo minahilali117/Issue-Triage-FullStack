@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Paperclip, Trash2 } from 'lucide-react';
+import { Activity, MessageSquare, Paperclip, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from './auth-provider';
 import {
-  ApiError,
   createComment,
   deleteAttachment,
   deleteComment,
@@ -17,9 +16,11 @@ import {
   updateComment,
   uploadAttachment,
 } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-errors';
 import { Comment, IssueUser } from '@/types/issue';
 import { Button, Input } from './ui';
 import LoadingState from './loading-state';
+import SectionEmptyState from './section-empty-state';
 import { appToast } from '@/lib/toast';
 
 interface IssueDetailsModalProps {
@@ -86,9 +87,6 @@ const formatActivity = (type: string, oldValue: string | null, newValue: string 
   return type.replaceAll('_', ' ').toLowerCase();
 };
 
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof ApiError || error instanceof Error ? error.message : fallback;
-
 export default function IssueDetailsModal({
   issueId,
   onClose,
@@ -154,7 +152,7 @@ export default function IssueDetailsModal({
       appToast.commentAdded();
       invalidateDetails();
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not add comment.')),
+    meta: { errorFallback: 'Could not add comment.' },
   });
   const editCommentMutation = useMutation({
     mutationFn: (payload: { id: number; content: string; mentionIds: number[] }) =>
@@ -167,7 +165,7 @@ export default function IssueDetailsModal({
       appToast.commentUpdated();
       invalidateDetails();
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not update comment.')),
+    meta: { errorFallback: 'Could not update comment.' },
   });
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteComment(issueId as number, commentId),
@@ -175,7 +173,7 @@ export default function IssueDetailsModal({
       appToast.commentDeleted();
       invalidateDetails();
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not delete comment.')),
+    meta: { errorFallback: 'Could not delete comment.' },
   });
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadAttachment(issueId as number, file),
@@ -183,9 +181,13 @@ export default function IssueDetailsModal({
       appToast.attachmentUploaded();
       invalidateDetails();
     },
+    meta: { suppressApiToast: true },
     onError: (error) =>
       appToast.attachmentUploadFailed(
-        getErrorMessage(error, `Could not upload attachment. Use ${allowedAttachmentLabel}.`),
+        getApiErrorMessage(
+          error,
+          `Could not upload attachment. Use ${allowedAttachmentLabel}.`,
+        ),
       ),
   });
   const deleteAttachmentMutation = useMutation({
@@ -195,7 +197,7 @@ export default function IssueDetailsModal({
       appToast.attachmentDeleted();
       invalidateDetails();
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not delete attachment.')),
+    meta: { errorFallback: 'Could not delete attachment.' },
   });
 
   if (!issueId) return null;
@@ -300,6 +302,14 @@ export default function IssueDetailsModal({
                 ) : null}
 
                 <div className="mt-4 grid gap-3">
+                  {comments.length === 0 ? (
+                    <SectionEmptyState
+                      compact
+                      icon={MessageSquare}
+                      title="No comments yet"
+                      description="Start the discussion with the first comment on this issue."
+                    />
+                  ) : null}
                   {comments.map((comment) => {
                     const canEdit = comment.authorId === user?.id;
                     const canDelete =
@@ -402,6 +412,18 @@ export default function IssueDetailsModal({
                   </div>
                 ) : null}
                 <div className="mt-3 grid gap-2">
+                  {attachments.length === 0 ? (
+                    <SectionEmptyState
+                      compact
+                      icon={Paperclip}
+                      title="No attachments yet"
+                      description={
+                        canUpload
+                          ? 'Upload a file to share screenshots, logs, or supporting documents.'
+                          : 'Attachments uploaded to this issue will appear here.'
+                      }
+                    />
+                  ) : null}
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
@@ -414,7 +436,9 @@ export default function IssueDetailsModal({
                           downloadAttachment(issueId, attachment.id, attachment.fileName)
                             .then(() => appToast.success('Attachment downloaded.'))
                             .catch((error: unknown) =>
-                              appToast.attachmentDownloadFailed(getErrorMessage(error, 'Could not download attachment.')),
+                              appToast.attachmentDownloadFailed(
+                                getApiErrorMessage(error, 'Could not download attachment.'),
+                              ),
                             );
                         }}
                       >
@@ -439,6 +463,14 @@ export default function IssueDetailsModal({
               <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
                 <h4 className="font-semibold text-slate-950 dark:text-white">Activity</h4>
                 <div className="mt-3 grid gap-3">
+                  {(issue?.activityLog ?? []).length === 0 ? (
+                    <SectionEmptyState
+                      compact
+                      icon={Activity}
+                      title="No activity yet"
+                      description="Status, priority, and assignment changes will be recorded here."
+                    />
+                  ) : null}
                   {(issue?.activityLog ?? []).map((item) => (
                     <div key={item.id} className="border-l-2 border-slate-200 pl-3 dark:border-white/15">
                       <p className="text-sm text-slate-800 dark:text-slate-200">

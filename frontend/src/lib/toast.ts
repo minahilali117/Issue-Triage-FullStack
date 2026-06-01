@@ -84,8 +84,26 @@ export const appToast = {
   authLoginFailure: (message: string) => emit('error', message),
   authSignupFailure: (message: string) => emit('error', message),
   authUnauthorized: () =>
-    emit('warning', 'Your session expired. Please sign in again.', {
+    emit('warning', 'Your session has expired. Please sign in again.', {
       dedupeKey: 'auth:unauthorized',
+    }),
+  apiError: (message: string, dedupeKey?: string) =>
+    emit('error', message, { dedupeKey: dedupeKey ?? `api:${message}` }),
+  networkOffline: () =>
+    emit('warning', 'You are offline. Changes may not sync until you reconnect.', {
+      dedupeKey: 'network:offline',
+    }),
+  networkOnline: () =>
+    emit('success', 'Back online. Syncing latest updates.', {
+      dedupeKey: 'network:online',
+    }),
+  realtimeDisconnected: () =>
+    emit('warning', 'Realtime connection lost.', {
+      dedupeKey: 'realtime:disconnected',
+    }),
+  realtimeRestored: () =>
+    emit('success', 'Realtime connection restored.', {
+      dedupeKey: 'realtime:restored',
     }),
   issueCreated: () => emit('success', 'Issue created.'),
   issueDeleted: () => emit('success', 'Issue deleted.'),

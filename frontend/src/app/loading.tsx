@@ -28,7 +28,7 @@ export default function Loading() {
             ))}
           </div>
 
-          <Skeleton className="h-[28rem] rounded-3xl" />
+          <Skeleton className="h-112 rounded-3xl" />
         </main>
       </div>
     </div>

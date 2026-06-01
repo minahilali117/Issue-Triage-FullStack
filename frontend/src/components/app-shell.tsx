@@ -22,6 +22,9 @@ import {
 import { fetchRecentActivity } from '@/lib/api';
 import type { ActivityLog } from '@/types/issue';
 import NotificationBell from './notification-bell';
+import ConnectionStatusIndicator from './connection-status-indicator';
+import SectionEmptyState from './section-empty-state';
+import { Skeleton } from './ui';
 
 type AppShellProps = {
   children: ReactNode;
@@ -255,13 +258,20 @@ export default function AppShell({ children }: AppShellProps) {
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 <div className="grid gap-3">
                   {recentActivityQuery.isLoading ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
-                      Loading activity...
+                    <div className="grid gap-3">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <div key={index} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10">
+                          <Skeleton className="h-4 w-4/5" />
+                          <Skeleton className="mt-2 h-3 w-1/3" />
+                        </div>
+                      ))}
                     </div>
                   ) : (recentActivityQuery.data?.length ?? 0) === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-                      No recent activity yet.
-                    </div>
+                    <SectionEmptyState
+                      compact
+                      title="No activity yet"
+                      description="Workspace changes will appear here as issues are created and updated."
+                    />
                   ) : (
                     recentActivityQuery.data?.map((activity) => (
                       <div key={activity.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/5">
@@ -421,6 +431,7 @@ export default function AppShell({ children }: AppShellProps) {
               </div>
 
               <div className="flex items-center gap-2">
+                <ConnectionStatusIndicator />
                 <NotificationBell />
               </div>
             </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import AppToaster from '@/components/app-toaster';
+import ChunkLoadRecovery from '@/components/chunk-load-recovery';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
@@ -25,6 +26,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
+        <ChunkLoadRecovery />
         <AppToaster />
       </body>
     </html>

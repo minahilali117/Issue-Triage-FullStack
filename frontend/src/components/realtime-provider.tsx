@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { io } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 import { useAuth } from './auth-provider';
 import { appToast } from '@/lib/toast';
 import { apiBaseUrl } from '@/lib/api';
@@ -11,6 +18,24 @@ import type {
   NotificationItem,
   NotificationUpdatedPayload,
 } from '@/types/notification';
+
+export type SocketConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+export type NetworkStatus = 'online' | 'offline';
+export type ConnectionDisplayStatus =
+  | 'online'
+  | 'offline'
+  | 'disconnected'
+  | 'reconnecting';
+
+type ConnectionContextValue = {
+  socketStatus: SocketConnectionStatus;
+  networkStatus: NetworkStatus;
+  displayStatus: ConnectionDisplayStatus;
+};
+
+const ConnectionContext = createContext<ConnectionContextValue | undefined>(
+  undefined,
+);
 
 type NotificationListCache = {
   data: NotificationItem[];
@@ -31,18 +56,92 @@ const updateNotificationListCache = (
   };
 };
 
+export function useConnectionStatus() {
+  const context = useContext(ConnectionContext);
+
+  if (!context) {
+    throw new Error('useConnectionStatus must be used within RealtimeProvider');
+  }
+
+  return context;
+}
+
 export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isReady } = useAuth();
   const queryClient = useQueryClient();
+  const [socketStatus, setSocketStatus] = useState<SocketConnectionStatus>('disconnected');
+  const [networkStatus, setNetworkStatus] = useState<NetworkStatus>('online');
+  const hadSocketConnectionRef = useRef(false);
+  const hadNetworkConnectionRef = useRef(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
 
   useEffect(() => {
-    if (!isReady || !isAuthenticated) {
+    if (typeof window === 'undefined') {
       return;
     }
 
-    const socket = io(apiBaseUrl, {
+    const syncNetworkStatus = () => {
+      const isOnline = navigator.onLine;
+      setNetworkStatus(isOnline ? 'online' : 'offline');
+
+      if (!isOnline && hadNetworkConnectionRef.current) {
+        appToast.networkOffline();
+      }
+
+      if (isOnline && !hadNetworkConnectionRef.current) {
+        appToast.networkOnline();
+      }
+
+      hadNetworkConnectionRef.current = isOnline;
+    };
+
+    syncNetworkStatus();
+    window.addEventListener('online', syncNetworkStatus);
+    window.addEventListener('offline', syncNetworkStatus);
+
+    return () => {
+      window.removeEventListener('online', syncNetworkStatus);
+      window.removeEventListener('offline', syncNetworkStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || !isAuthenticated) {
+      setSocketStatus('disconnected');
+      return;
+    }
+
+    let socket: Socket | null = null;
+
+    socket = io(apiBaseUrl, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      reconnection: true,
+    });
+
+    socket.on('connect', () => {
+      const isReconnect = hadSocketConnectionRef.current;
+      hadSocketConnectionRef.current = true;
+      setSocketStatus('connected');
+      if (isReconnect) {
+        appToast.realtimeRestored();
+      }
+    });
+
+    socket.on('disconnect', () => {
+      setSocketStatus('disconnected');
+      if (hadSocketConnectionRef.current) {
+        appToast.realtimeDisconnected();
+      }
+    });
+
+    socket.io.on('reconnect_attempt', () => {
+      setSocketStatus('reconnecting');
+    });
+
+    socket.io.on('reconnect_failed', () => {
+      setSocketStatus('disconnected');
     });
 
     socket.on('issue.updated', (payload: { actorId?: number | null }) => {
@@ -112,9 +211,37 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
     });
 
     return () => {
-      socket.disconnect();
+      socket?.disconnect();
+      setSocketStatus('disconnected');
     };
   }, [isAuthenticated, isReady, queryClient, user?.id]);
 
-  return children;
+  const displayStatus = useMemo<ConnectionDisplayStatus>(() => {
+    if (networkStatus === 'offline') {
+      return 'offline';
+    }
+
+    if (socketStatus === 'reconnecting') {
+      return 'reconnecting';
+    }
+
+    if (socketStatus === 'connected') {
+      return 'online';
+    }
+
+    return 'disconnected';
+  }, [networkStatus, socketStatus]);
+
+  const value = useMemo(
+    () => ({
+      socketStatus,
+      networkStatus,
+      displayStatus,
+    }),
+    [displayStatus, networkStatus, socketStatus],
+  );
+
+  return (
+    <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>
+  );
 }

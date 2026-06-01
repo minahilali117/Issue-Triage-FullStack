@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
+import SectionEmptyState from './section-empty-state';
 import * as Popover from '@radix-ui/react-popover';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -169,9 +170,12 @@ export default function NotificationBell() {
                     ))}
                   </div>
                 ) : sortedNotifications.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-                    No notifications yet.
-                  </div>
+                  <SectionEmptyState
+                    compact
+                    icon={Bell}
+                    title="No notifications"
+                    description="Updates about assignments, comments, and issue changes will appear here."
+                  />
                 ) : (
                   <div className="grid gap-2">
                     {sortedNotifications.map((notification) => (

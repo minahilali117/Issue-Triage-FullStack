@@ -11,13 +11,7 @@ import { z } from 'zod';
 import LoadingState from '@/components/loading-state';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton } from '@/components/ui';
-import {
-  ApiError,
-  changeMyPassword,
-  fetchUsers,
-  updateMyProfile,
-  updateUserRole,
-} from '@/lib/api';
+import { changeMyPassword, fetchUsers, updateMyProfile, updateUserRole } from '@/lib/api';
 import { appToast } from '@/lib/toast';
 import type { AuthResponse } from '@/types/auth';
 import type { UserRole } from '@/types/issue';
@@ -39,9 +33,6 @@ const passwordSchema = z
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 type PasswordFormValues = z.infer<typeof passwordSchema>;
-
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof ApiError || error instanceof Error ? error.message : fallback;
 
 const roleOptions: UserRole[] = ['ADMIN', 'DEVELOPER', 'VIEWER'];
 
@@ -84,7 +75,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       appToast.success('Profile updated.');
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not update profile.')),
+    meta: { errorFallback: 'Could not update profile.' },
   });
 
   const passwordMutation = useMutation({
@@ -97,7 +88,7 @@ export default function SettingsPage() {
       passwordForm.reset({ currentPassword: '', newPassword: '', confirmPassword: '' });
       appToast.success('Password updated.');
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not change password.')),
+    meta: { errorFallback: 'Could not change password.' },
   });
 
   const roleMutation = useMutation({
@@ -106,7 +97,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       appToast.success('User role updated.');
     },
-    onError: (error) => appToast.error(getErrorMessage(error, 'Could not update role.')),
+    meta: { errorFallback: 'Could not update role.' },
   });
 
   const isAdmin = user?.role === 'ADMIN';

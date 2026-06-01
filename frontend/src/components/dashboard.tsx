@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
 import {
-  ApiError,
   createIssue,
   deleteIssue,
   fetchIssues,
@@ -14,6 +13,7 @@ import {
   fetchUsers,
   updateIssue,
 } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-errors';
 import {
   Issue,
   IssueInput,
@@ -33,9 +33,6 @@ import LoadingState from './loading-state';
 import SummaryCards from './summary-cards';
 import { Button } from './ui';
 import { appToast, describeIssueSaveToast } from '@/lib/toast';
-
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof ApiError || error instanceof Error ? error.message : fallback;
 
 const DEFAULT_QUERY: IssueQuery = {
   page: 1,
@@ -155,12 +152,11 @@ export default function Dashboard() {
   const issues = issuesQuery.data?.data ?? [];
   const meta = issuesQuery.data?.meta ?? null;
   const isLoading = issuesQuery.isLoading || summaryQuery.isLoading;
-  const error =
-    issuesQuery.error instanceof Error
-      ? issuesQuery.error.message
-      : summaryQuery.error instanceof Error
-        ? summaryQuery.error.message
-        : null;
+  const error = issuesQuery.error
+    ? getApiErrorMessage(issuesQuery.error, 'Could not load issues.')
+    : summaryQuery.error
+      ? getApiErrorMessage(summaryQuery.error, 'Could not load summary.')
+      : null;
 
   const paginationLabel = useMemo(() => {
     if (!meta) {
@@ -194,13 +190,17 @@ export default function Dashboard() {
       }
       refreshDashboard();
     },
-    onError: (error) => {
-      appToast.error(getErrorMessage(error, 'Could not save issue.'));
+    meta: {
+      errorFallback: 'Could not save issue.',
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteIssue(id),
+    meta: {
+      suppressApiToast: true,
+      errorFallback: 'Could not delete issue.',
+    },
     onSuccess: () => {
       appToast.issueDeleted();
       refreshDashboard();
@@ -209,7 +209,7 @@ export default function Dashboard() {
       const role = user?.role ?? 'unknown role';
       const email = user?.email ?? 'unknown user';
       appToast.error(
-        `${getErrorMessage(error, 'Could not delete issue.')} Signed in as ${email} (${role}). Only ADMIN can delete issues.`,
+        `${getApiErrorMessage(error, 'Could not delete issue.')} Signed in as ${email} (${role}). Only ADMIN can delete issues.`,
       );
     },
   });

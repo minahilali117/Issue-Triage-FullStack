@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Button, Input } from '@/components/ui';
 import { useAuth } from '@/components/auth-provider';
 import { login, signup } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-errors';
 import { appToast } from '@/lib/toast';
 
 export default function LoginPage() {
@@ -63,8 +64,7 @@ export default function LoginPage() {
       }
       router.replace('/');
     } catch (submitError) {
-      const message =
-        submitError instanceof Error ? submitError.message : 'Authentication failed.';
+      const message = getApiErrorMessage(submitError, 'Authentication failed.');
       setError(message);
       if (isSignup) {
         appToast.authSignupFailure(message);
